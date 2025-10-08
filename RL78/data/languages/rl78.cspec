@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<compiler_spec>
+  <data_organization>
+	<pointer_size value="2" />
+  </data_organization>
+  <global>
+    <range space="ram" first="0x0" last="0xFFEDF"/>  <!-- Don't consider memory mapped registers global -->
+  </global>
+  <nohighptr>
+    <range space="ram" first="0xFFEE0" last="0xFFFFF"/>     <!-- Assume there is no aliasing into memory mapped registers -->
+  </nohighptr>
+  <stackpointer register="SP" space="ram"/>
+  <default_proto>
+    <prototype name="stdcall" extrapop="2" stackshift="2" strategy="register">
+      <input>
+        <pentry minsize="1" maxsize="1">
+          <register name="RB0_A"/>
+        </pentry>
+      </input>
+      <output>
+        <pentry minsize="1" maxsize="1">
+          <register name="RB0_A"/>
+        </pentry>
+      </output>
+    </prototype>
+  </default_proto>
+</compiler_spec>

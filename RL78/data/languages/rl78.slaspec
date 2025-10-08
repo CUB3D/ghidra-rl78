@@ -1,0 +1,1449 @@
+# sleigh specification file for Renesas RL78
+# This models a RL78-S3 but should work for RL78-S1 and RL78-S2 cores as S3 is a true superset
+
+define endian=little;
+define alignment=1;
+
+define space ram     type=ram_space      size=3  default;
+
+define space io      type=ram_space      size=2;
+define space register type=register_space size=1;
+
+define ram offset=0xFFEE0 size=1 [
+	RB3_X RB3_A RB3_C RB3_B
+	RB3_E RB3_D RB3_L RB3_H
+	
+	RB2_X RB2_A RB2_C RB2_B
+	RB2_E RB2_D RB2_L RB2_H
+	
+	RB1_X RB1_A RB1_C RB1_B
+	RB1_E RB1_D RB1_L RB1_H
+	
+	RB0_X RB0_A RB0_C RB0_B
+	RB0_E RB0_D RB0_L RB0_H
+];
+
+define ram offset=0xFFEE0 size=2 [
+	RB3_AX RB3_BC
+	RB3_DE RB3_HL
+	
+	RB2_AX RB2_BC
+	RB2_DE RB2_HL
+	
+	RB1_AX RB1_BC
+	RB1_DE RB1_HL
+	
+	RB0_AX RB0_BC
+	RB0_DE RB0_HL
+];
+
+define ram offset=0xFFEE0 size=4 [
+	RB3_BCAX
+	RB3_HLDE
+	
+	RB2_BCAX
+	RB2_HLDE
+	
+	RB1_BCAX
+	RB1_HLDE
+	
+	RB0_BCAX
+	RB0_HLDE
+];
+
+
+define ram offset=0xFFFF8 size=2 [
+	SP
+];
+
+
+define ram offset=0xFFFF8 size=1 [
+	SPL
+	SPH
+	PSW
+	Reserve
+	CS
+	ES
+	PMC
+	MEM
+];
+
+
+define ram offset=0x0FFF0 size=2 [
+	MACRL
+	MACRH
+];
+
+define ram offset=0x0FFF0 size=4 [
+	MACR
+];
+
+define register offset=0x0 size=4 contextreg;
+
+define context contextreg
+  current_bank		= (0,7)
+;
+
+BCAX: "BCAX" is current_bank { local tmp:3 = 0xFFEF8 - current_bank*8; export *:4 tmp; }
+HLDE: "HLDE" is current_bank { local tmp:3 = 0xFFEFC - current_bank*8; export *:4 tmp; }
+
+
+AX2: "AX" is current_bank { local tmp:3 = 0xFFEF8 - current_bank*8; export *:2 tmp;}
+AX: "AX" is current_bank { local tmp:3 = 0xFFEF8 - current_bank*8; export *:2 tmp;}
+BC: "BC" is current_bank { local tmp:3 = 0xFFEFA - current_bank*8; export *:2 tmp;}
+DE: "DE" is current_bank { local tmp:3 = 0xFFEFC - current_bank*8; export *:2 tmp;}
+HL: "HL" is current_bank { local tmp:3 = 0xFFEFE - current_bank*8; export *:2 tmp;}
+
+#H: "H" is current_bank { local tmp:3 = 0xFFEFF - current_bank*8; export *:1 tmp;}
+#L: "L" is current_bank { local tmp:3 = 0xFFEFE - current_bank*8; export *:1 tmp;}
+#D: "D" is current_bank { local tmp:3 = 0xFFEFD - current_bank*8; export *:1 tmp;}
+#E: "E" is current_bank { local tmp:3 = 0xFFEFC - current_bank*8; export *:1 tmp;}
+B: "B" is current_bank { local tmp:3 = 0xFFEFB - current_bank*8; export *:1 tmp;}
+C: "C" is current_bank { local tmp:3 = 0xFFEFA - current_bank*8; export *:1 tmp;}
+A: "A" is current_bank { local tmp:3 = 0xFFEF9 - current_bank*8; export *:1 tmp;}
+X: "X" is current_bank { local tmp:3 = 0xFFEF8 - current_bank*8; export *:1 tmp;}
+
+
+
+define bitrange CY=PSW[0,1]
+                ISP0=PSW[1,1]
+                ISP1=PSW[2,1]
+                RBS0=PSW[3,1]
+                AC=PSW[4,1]
+                RESB1=PSW[5,1]
+                Z=PSW[6,1]
+                IE=PSW[7,1] 
+;
+
+
+
+
+define token opbyte (8)
+	op=(0, 7)
+	oplo=(0, 3)
+	ophi=(4, 7)
+	
+	jimm8 = (0, 7) signed
+	
+	data8 = (0, 7)
+	data0_1 = (0, 1)
+	
+	data3 = (0, 2)
+	datal=(0, 7)
+	datah=(0, 7)
+	datas=(0, 7)
+	immlo=(0, 3)
+	immhi=(4, 7)
+	imm7=(7,7)
+	imm4_6 = (4,6)
+	imm3_3 = (3, 3)
+;
+
+macro pop8(o) {
+	local spaddr:3 = zext(SP);
+	o = *[ram]:1 spaddr;
+	SP = SP + 1;
+}
+
+macro push16(v) {
+	SP = SP - 2;
+	local spaddr:3 = zext(SP);
+	*[ram]:2 spaddr = v;
+}
+
+macro pop16(o) {
+	local spaddr:3 = zext(SP);
+	o = *[ram]:2 spaddr;
+	SP = SP + 2;
+}
+
+macro push32(v) {
+	SP = SP - 4;
+	local spaddr:3 = zext(SP);
+	*[ram]:4 spaddr = v;
+}
+
+macro pop32(o) {
+	local spaddr:3 = zext(SP);
+	o = *[ram]:4 spaddr;
+	SP = SP + 4;
+}
+
+macro pop24(o) {
+	local spaddr:3 = zext(SP);
+	o = *[ram]:3 spaddr;
+	SP = SP + 3;
+}
+
+reg8_xacbedlh: is data3 & imm3_3=0 & current_bank {
+	local tmp:3 = 0xFFEF8 + (data3 & 0xF) - 8*current_bank;
+
+	export *[ram]:1 tmp;
+}
+
+
+
+
+
+
+data16: data is datal ; datah [ data = (datah << 8) | datal;] { export *[const]:2 data; }
+#data20: data is datal ; datah [ data = (datah << 8) | datal;] { export *[const]:2 data; }
+
+addr16_abs: !val is datal ; datah [val = 0xF0000 | (datah << 8) | datal;] { export *[const]:3 val;}
+addr20_abs: !!data20 is datal; datah; datas [ data20 = (datas << 16) | (datah << 8) | datal;] { export *[const]:3 data20; }
+addr8_rel: "$" addr8 is jimm8 [addr8 = inst_start + 2 + jimm8; ] { export *[const]:3 addr8;}
+addr16_rel: "$!" addr16 is datal ; jimm8 [addr16 = inst_start + 3 + ((jimm8 << 8) | datal);] { export *[const]:3 addr16;}
+
+# short direct addressing
+saddr: val is jimm8 [val = 0xffe20 + jimm8;] { export *[const]:3 val; }
+saddrp: val is jimm8 & data0_1=0 [val = 0xffe20 + jimm8;] { export *[const]:3 val; }
+
+# SFR addressing
+sfr: val is jimm8 [val = 0xfff00 + jimm8;] { export *[const]:3 val; }
+sfrp: val is jimm8 & data0_1=0 [val = 0xfff00 + jimm8;] { export *[const]:3 val; }
+
+reg_xcbedlh: is oplo=0x8 & current_bank { local tmp:3=0xFFEF8 - current_bank*8; export *[ram]:1 tmp; }
+reg_xcbedlh: is oplo=0xA & current_bank { local tmp:3=0xFFEFA - current_bank*8; export *[ram]:1 tmp; }
+reg_xcbedlh: is oplo=0xB & current_bank { local tmp:3=0xFFEFB - current_bank*8; export *[ram]:1 tmp; }
+reg_xcbedlh: is oplo=0xC & current_bank { local tmp:3=0xFFEFC - current_bank*8; export *[ram]:1 tmp; }
+reg_xcbedlh: is oplo=0xD & current_bank { local tmp:3=0xFFEFD - current_bank*8; export *[ram]:1 tmp; }
+reg_xcbedlh: is oplo=0xE & current_bank { local tmp:3=0xFFEFE - current_bank*8; export *[ram]:1 tmp; }
+reg_xcbedlh: is oplo=0xF & current_bank { local tmp:3=0xFFEFF - current_bank*8; export *[ram]:1 tmp; }
+
+reg_xcbedlh_low: is oplo=0x0 & current_bank { local tmp:3=0xFFEF8 - current_bank*8; export *[ram]:1 tmp; }
+reg_xcbedlh_low: is oplo=0x2 & current_bank { local tmp:3=0xFFEFA - current_bank*8; export *[ram]:1 tmp; }
+reg_xcbedlh_low: is oplo=0x3 & current_bank { local tmp:3=0xFFEFB - current_bank*8; export *[ram]:1 tmp; }
+reg_xcbedlh_low: is oplo=0x4 & current_bank { local tmp:3=0xFFEFC - current_bank*8; export *[ram]:1 tmp; }
+reg_xcbedlh_low: is oplo=0x5 & current_bank { local tmp:3=0xFFEFD - current_bank*8; export *[ram]:1 tmp; }
+reg_xcbedlh_low: is oplo=0x6 & current_bank { local tmp:3=0xFFEFE - current_bank*8; export *[ram]:1 tmp; }
+reg_xcbedlh_low: is oplo=0x7 & current_bank { local tmp:3=0xFFEFF - current_bank*8; export *[ram]:1 tmp; }
+
+reg_cbedlh: is oplo=0x8 & current_bank { local tmp:1=0xFFEF8 - current_bank*8; export *[ram]:1 tmp; }
+reg_cbedlh: is oplo=0xA & current_bank { local tmp:1=0xFFEFA - current_bank*8; export *[ram]:1 tmp; }
+reg_cbedlh: is oplo=0xB & current_bank { local tmp:1=0xFFEFB - current_bank*8; export *[ram]:1 tmp; }
+reg_cbedlh: is oplo=0xC & current_bank { local tmp:1=0xFFEFC - current_bank*8; export *[ram]:1 tmp; }
+reg_cbedlh: is oplo=0xD & current_bank { local tmp:3=0xFFEFD - current_bank*8; export *[ram]:1 tmp; }
+reg_cbedlh: is oplo=0xE & current_bank { local tmp:3=0xFFEFE - current_bank*8; export *[ram]:1 tmp; }
+
+hl_ind: [HL] is HL { local addr:3 = zext(HL); local tmp:3 = zext(*[ram]:2 addr); export *[const]:3 tmp;}
+de_ind: [DE] is DE { local addr:3 = zext(DE); local tmp:3 = zext(*[ram]:2 addr); export *[const]:3 tmp;}
+
+hl_b_ind: [HL + B] is HL & B { local addr:3 = zext(HL) + zext(B); local tmp:3 = zext(*[ram]:2 addr); export *[const]:3 tmp;}
+hl_c_ind: [HL + C] is HL & C { local addr:3 = zext(HL) + zext(C); local tmp:3 = zext(*[ram]:2 addr); export *[const]:3 tmp;}
+
+addr8_hl_rel: [HL + data8] is HL & data8 {
+	local addr:3 = zext(HL)+zext(data8:1); 
+	local val:3 = zext(*[ram]:2 addr);
+	export *[const]:3 val;
+}
+
+addr8_de_rel: [DE + data8] is DE & data8 {
+	local addr:3 = zext(DE)+zext(data8:1); 
+	local val:3 = zext(*[ram]:2 addr);
+	export *[const]:3 val;
+}
+
+addr8_sp_rel: ["SP" + data8] is data8 {
+	local addr:3 = zext(SP)+zext(data8:1); 
+	local val:3 = zext(*[ram]:2 addr);
+	export *[const]:3 val;
+}
+
+es_hl_b_ind: ES:hl_b_ind is ES & hl_b_ind { local tmp:3 = (zext(ES) << 16) + hl_b_ind; export *[const]:3 tmp; }
+es_hl_c_ind: ES:hl_c_ind is ES & hl_c_ind { local tmp:3 = (zext(ES) << 16) + hl_c_ind; export *[const]:3 tmp; }
+es_addr16_abs: ES:addr16_abs is ES & addr16_abs { local tmp:3 = (zext(ES) << 16) + addr16_abs; export *[const]:3 tmp; }
+es_de_ind: ES:de_ind is de_ind & ES { local tmp:3 = zext(ES << 16) + de_ind; export *[const]:3 tmp;}
+es_hl_ind: ES:hl_ind is hl_ind & ES { local tmp:3 = zext(ES << 16) + hl_ind; export *[const]:3 tmp;}
+
+addr16_es_rel: ES:addr16_rel is ES & addr16_rel { local tmp:3 = (zext(ES) << 16) + addr16_rel; export *[const]:3 tmp; }
+es_addr8_hl_rel: ES:addr8_hl_rel is ES & addr8_hl_rel { local tmp:3 = (zext(ES) << 16) + addr8_hl_rel; export *[const]:3 tmp; }
+es_addr8_de_rel: ES:addr8_de_rel is ES & addr8_de_rel { local tmp:3 = (zext(ES) << 16) + addr8_de_rel; export *[const]:3 tmp; }
+
+
+word_b: addr16_abs[B] is addr16_abs & B { local tmp:3 = addr16_abs + zext(B)*2; export *[const]:3 tmp; }
+word_c: addr16_abs[C] is addr16_abs & C { local tmp:3 = addr16_abs + zext(C)*2; export *[const]:3 tmp; }
+word_bc: addr16_abs[BC] is addr16_abs & BC { local tmp:3 = addr16_abs + zext(BC)*2; export *[const]:3 tmp; }
+
+es_word_b: ES:addr16_abs[B] is addr16_abs & B & ES { local tmp:3 = (zext(ES) << 16) + addr16_abs + zext(B)*2; export *[const]:3 tmp; }
+es_word_c: ES:addr16_abs[C] is addr16_abs & C & ES { local tmp:3 = (zext(ES) << 16) + addr16_abs + zext(C)*2; export *[const]:3 tmp; }
+es_word_bc: ES:addr16_abs[BC] is addr16_abs & BC & ES { local tmp:3 = (zext(ES) << 16) + addr16_abs + zext(BC)*2; export *[const]:3 tmp; }
+
+#mov
+:mov reg8_xacbedlh, data8 is ophi=0x5 & reg8_xacbedlh ; data8 { reg8_xacbedlh = data8; }
+:mov saddr, data8 is op=0xCD; saddr; data8 { *[ram]:1 saddr = data8; }
+:mov sfr, data8 is op=0xCE; sfr; data8 { *[ram]:1 sfr = data8; }
+:mov addr16_abs, data8 is op=0xCF; addr16_abs; data8 { *[ram]:1 addr16_abs = data8; }
+:mov A, reg_xcbedlh_low is ophi=0x6 & reg_xcbedlh_low & A { A = reg_xcbedlh_low; }
+:mov reg_xcbedlh_low, A is ophi=0x7 & reg_xcbedlh_low & A { reg_xcbedlh_low = A; }
+:mov A, saddr is op=0x8D; saddr & A { A = *[ram]:1 saddr; }
+:mov saddr, A is op=0x9D; saddr & A { *[ram]:1 saddr = A; }
+:mov A, sfr is op=0x8E; sfr & A { A = *[ram]:1 sfr; }
+:mov sfr, A is op=0x9E; sfr & A { *[ram]:1 sfr = A; }
+:mov A, addr16_abs is op=0x8F; addr16_abs & A { A = *[ram]:1 addr16_abs; }
+:mov addr16_abs, A is op=0x9F; addr16_abs & A { *[ram]:1 addr16_abs = A; }
+:mov PSW, data8 is op=0xCE; op=0xFA; data8 & PSW { PSW = data8; }
+:mov A, PSW is op=0x8E; op=0xFA & PSW & A { A = PSW; }
+:mov PSW, A is op=0x9E; op=0xFA & PSW & A { PSW = A; }
+:mov ES, data8 is op=0x41; data8 & ES { ES = data8; }
+:mov ES, saddr is op=0x61; op=0xB8;  saddr & ES { ES = *[ram]:1 saddr; }
+:mov A, ES is op=0x8E; op=0xFD & ES & A { A = ES; }
+:mov ES, A is op=0x9E; op=0xFD & ES & A { ES = A; }
+:mov CS, data8 is op=0xCE; op=0xFC; data8 & CS { CS = data8; }
+
+
+:mov A, CS is op=0x8E; op=0xFC & A & CS { A = CS; }
+:mov CS, A is op=0x9E; op=0xFC & A & CS { CS = A; }
+:mov A, de_ind is op=0x89 & de_ind & A { A = *[ram]:1 de_ind; }
+:mov de_ind, A is op=0x99 & de_ind & A { *[ram]:1 de_ind = A; }
+:mov addr8_de_rel, data8 is op=0xCA; addr8_de_rel; data8 { *[ram]:1 addr8_de_rel = data8; }
+:mov A, addr8_de_rel is op=0x8A; addr8_de_rel & A { A = *[ram]:1 addr8_de_rel; }
+:mov addr8_de_rel, A is op=0x9A; addr8_de_rel & A { *[ram]:1 addr8_de_rel = A; }
+:mov A, hl_ind is op=0x8B & hl_ind & A { A = *[ram]:1 hl_ind; }
+:mov hl_ind, A is op=0x9B & hl_ind & A { *[ram]:1 hl_ind = A; }
+:mov addr8_hl_rel, data8 is op=0xCC; addr8_hl_rel; data8 { *[ram]:1 addr8_hl_rel = data8; }
+:mov A, addr8_hl_rel is op=0x8C; addr8_hl_rel & A { A = *[ram]:1 addr8_hl_rel; }
+:mov addr8_hl_rel, A is op=0x9C; addr8_hl_rel & A { *[ram]:1 addr8_hl_rel = A; }
+:mov A, hl_b_ind is op=0x61; op=0xC9 & hl_b_ind & A { A = *[ram]:1 hl_b_ind; }
+:mov hl_b_ind, A is op=0x61; op=0xD9 & hl_b_ind & A { *[ram]:1 hl_b_ind = A; }
+:mov A, hl_c_ind is op=0x61; op=0xE9 & hl_c_ind & A { A = *[ram]:1 hl_c_ind; }
+:mov hl_c_ind, A is op=0x61; op=0xF9 & hl_c_ind & A { *[ram]:1 hl_c_ind = A; }
+:mov word_b, data8 is op=0x19; word_b ; data8 { *[ram]:1 word_b = data8; }
+:mov A, word_b is op=0x09; word_b & A { A = *[ram]:1 word_b; }
+:mov word_b, A is op=0x18; word_b & A { *[ram]:1 word_b = A; }
+:mov word_c, data8 is op=0x38; word_c ; data8 { *[ram]:1 word_c = data8; }
+:mov A, word_c is op=0x29; word_c & A { A = *[ram]:1 word_c; }
+:mov word_c, A is op=0x28; word_c & A { *[ram]:1 word_c = A; }
+:mov word_bc, data8 is op=0x39; word_bc ; data8 { *[ram]:1 word_bc = data8; }
+:mov A, word_bc is op=0x49; word_bc & A { A = *[ram]:1 word_bc; }
+:mov word_bc, A is op=0x48; word_bc & A { *[ram]:1 word_bc = A; }
+:mov addr8_sp_rel, data8 is op=0xC8; addr8_sp_rel; data8 & A { *[ram]:1 addr8_sp_rel = data8; }
+:mov A, addr8_sp_rel is op=0x88; addr8_sp_rel & A { A = *[ram]:1 addr8_sp_rel; }
+:mov addr8_sp_rel, A is op=0x98; addr8_sp_rel & A { *[ram]:1 addr8_sp_rel = A; }
+:mov B, saddr is op=0xE8; saddr & B { B = *[ram]:1 saddr; }
+:mov B, addr16_abs is op=0xE9; addr16_abs & B { B = *[ram]:1 addr16_abs; }
+:mov C, saddr is op=0xF8; saddr & C { C = *[ram]:1 saddr; }
+:mov C, addr16_abs is op=0xF9; addr16_abs & C { C = *[ram]:1 addr16_abs; }
+:mov X, saddr is op=0xD8; saddr & X { X = *[ram]:1 saddr; }
+:mov X, addr16_abs is op=0xD9; addr16_abs & X { X = *[ram]:1 addr16_abs; }
+:mov es_addr16_abs, data8 is op=0x11; op=0xCF; es_addr16_abs; data8 { *[ram]:1 es_addr16_abs = data8; }
+:mov A, es_addr16_abs is op=0x11; op=0x8F; es_addr16_abs & A { A = *[ram]:1 es_addr16_abs; }
+:mov es_addr16_abs, A is op=0x11; op=0x9F; es_addr16_abs & A { *[ram]:1 es_addr16_abs = A; }
+:mov A, es_de_ind is op=0x11; op=0x89 & es_de_ind & A { A = *[ram]:1 es_de_ind; }
+:mov es_de_ind, A is op=0x11; op=0x99 & es_de_ind & A { *[ram]:1 es_de_ind = A; }
+:mov es_addr8_de_rel, data8 is op=0x11; op=0xCA; es_addr8_de_rel; data8 { *[ram]:1 es_addr8_de_rel = data8; }
+:mov A, es_addr8_de_rel is op=0x11; op=0x8A; es_addr8_de_rel & A { A = *[ram]:1 es_addr8_de_rel; }
+:mov es_addr8_de_rel, A is op=0x11; op=0x9A; es_addr8_de_rel & A { *[ram]:1 es_addr8_de_rel = A; }
+:mov A, es_hl_ind is op=0x11; op=0x8B & es_hl_ind & A { A = *[ram]:1 es_hl_ind; }
+
+:mov es_hl_ind, A is op=0x11; op=0x9B & es_hl_ind & A { *[ram]:1 es_hl_ind = A; }
+:mov es_addr8_hl_rel, data8 is op=0x11; op=0xCC; es_addr8_hl_rel; data8 { *[ram]:1 es_addr8_hl_rel = data8; }
+:mov A, es_addr8_hl_rel is op=0x11; op=0x8C; es_addr8_hl_rel & A { A = *[ram]:1 es_addr8_hl_rel; }
+:mov es_addr8_hl_rel, A is op=0x11; op=0x9C; es_addr8_hl_rel & A { *[ram]:1 es_addr8_hl_rel = A; }
+:mov A, es_hl_b_ind is op=0x11; op=0x61; op=0xC9; es_hl_b_ind & A { A = *[ram]:1 es_hl_b_ind; }
+:mov es_hl_b_ind, A is op=0x11; op=0x61; op=0xD9; es_hl_b_ind & A { *[ram]:1 es_hl_b_ind = A; }
+:mov A, es_hl_c_ind is op=0x11; op=0x61; op=0xE9; es_hl_c_ind & A { A = *[ram]:1 es_hl_c_ind; }
+:mov es_hl_c_ind, A is op=0x11; op=0x61; op=0xF9; es_hl_c_ind & A { *[ram]:1 es_hl_c_ind = A; }
+:mov es_word_b, data8 is op=0x11; op=0x19; es_word_b ; data8 { *[ram]:1 es_word_b = data8; }
+:mov A, es_word_b is op=0x11; op=0x09; es_word_b & A { A = *[ram]:1 es_word_b; }
+:mov es_word_b, A is op=0x11; op=0x18; es_word_b & A { *[ram]:1 es_word_b = A; }
+:mov es_word_c, data8 is op=0x11; op=0x38; es_word_c ; data8 { *[ram]:1 es_word_c = data8; }
+:mov A, es_word_c is op=0x11; op=0x29; es_word_c & A { A = *[ram]:1 es_word_c; }
+:mov es_word_c, A is op=0x11; op=0x28; es_word_c & A { *[ram]:1 es_word_c = A; }
+:mov es_word_bc, data8 is op=0x11; op=0x39; es_word_bc ; data8 { *[ram]:1 es_word_bc = data8; }
+:mov A, es_word_bc is op=0x11; op=0x49; es_word_bc & A { A = *[ram]:1 es_word_bc; }
+:mov es_word_bc, A is op=0x11; op=0x48; es_word_bc & A { *[ram]:1 es_word_bc = A; }
+:mov B, es_addr16_abs is op=0x11; op=0xE9; es_addr16_abs & B { B = *[ram]:1 es_addr16_abs; }
+:mov C, es_addr16_abs is op=0x11; op=0xF9; es_addr16_abs & C { C = *[ram]:1 es_addr16_abs; }
+:mov X, es_addr16_abs is op=0x11; op=0xD9; es_addr16_abs & X { X = *[ram]:1 es_addr16_abs; }
+
+
+#xch
+macro _xch(a, b) {
+	local tmp:1 = a;
+	a = b;
+	b = tmp;
+}
+macro _xch_mem(a, b) {
+	local tmp:1 = *[ram]:1 a;
+	*[ram]:1 a = b;
+	b = tmp;
+}  
+:xch A, X is op=0x08 & A & X { _xch(A, X);}
+:xch A, reg_cbedlh is op=0x61; ophi=0x8 & reg_cbedlh & A { _xch(A, reg_cbedlh); }
+:xch A, saddr is op=0x61; op=0xA8; saddr & A { _xch_mem(saddr, A); }
+:xch A, sfr is op=0x61; op=0xAB; sfr & A { _xch_mem(sfr, A); }
+:xch A, addr16_abs is op=0x61; op=0xAA; addr16_abs & A { _xch_mem(addr16_abs, A); }
+:xch A, de_ind is op=0x61; op=0xAE; de_ind & A { _xch_mem(de_ind, A); }
+:xch A, addr8_de_rel is op=0x61; op=0xAF; addr8_de_rel & A { _xch_mem(addr8_de_rel, A); }
+:xch A, hl_ind is op=0x61; op=0xAC; hl_ind & A { _xch_mem(hl_ind, A); }
+:xch A, addr8_hl_rel is op=0x61; op=0xAD; addr8_hl_rel & A { _xch_mem(addr8_hl_rel, A); }
+:xch A, hl_b_ind is op=0x61; op=0xB9; hl_b_ind & A { _xch_mem(hl_b_ind, A); }
+:xch A, hl_c_ind is op=0x61; op=0xA9; hl_c_ind & A { _xch_mem(hl_c_ind, A); }
+:xch A, es_addr16_abs is op=0x11; op=0x61; op=0xAA; es_addr16_abs & A { _xch_mem(es_addr16_abs, A); }
+:xch A, es_de_ind is op=0x11; op=0x61; op=0xAE; es_de_ind & A { _xch_mem(es_de_ind, A); }
+:xch A, es_addr8_de_rel is op=0x11; op=0x61; op=0xAF; es_addr8_de_rel & A { _xch_mem(es_addr8_de_rel, A); }
+:xch A, es_hl_ind is op=0x11; op=0x61; op=0xAC; es_hl_ind & A { _xch_mem(es_hl_ind, A); }
+:xch A, es_addr8_hl_rel is op=0x11; op=0x61; op=0xAD; es_addr8_hl_rel & A { _xch_mem(es_addr8_hl_rel, A); }
+:xch A, es_hl_b_ind is op=0x11; op=0x61; op=0xB9; es_hl_b_ind & A { _xch_mem(es_hl_b_ind, A); }
+:xch A, es_hl_c_ind is op=0x11; op=0x61; op=0xA9; es_hl_c_ind & A { _xch_mem(es_hl_c_ind, A); }
+
+
+#oneb
+:oneb A is op=0xE1 & A { A = 1; }
+:oneb X is op=0xE0 & X { X = 1; }
+:oneb B is op=0xE3 & B { B = 1; }
+:oneb C is op=0xE2 & C { C = 1; }
+:oneb saddr is op=0xE4; saddr { *[ram]:1 saddr = 1; }
+:oneb addr16_abs is op=0xE5; addr16_abs { *[ram]:1 addr16_abs = 1; }
+:oneb addr16_es_rel is op=0x11; op=0xE5; addr16_es_rel { *[ram]:1 addr16_es_rel = 1; }
+
+#clrb
+:clrb A is op=0xF1 & A { A = 0; }
+:clrb X is op=0xF0 & X { X = 0; }
+:clrb B is op=0xF3 & B { B = 0; }
+:clrb C is op=0xF2 & C { C = 0; }
+:clrb saddr is op=0xF4; saddr { *[ram]:1 saddr = 0; }
+:clrb addr16_abs is op=0xF5; addr16_abs { *[ram]:1 addr16_abs = 0; }
+:clrb addr16_es_rel is op=0x11; op=0xF5; addr16_es_rel { *[ram]:1 addr16_es_rel = 0; }
+
+
+#movs
+:movs addr8_hl_rel, X is op=0x61; op=0xce; addr8_hl_rel & X & A {
+	*[ram]:1 addr8_hl_rel = X;
+	Z = X == 0;
+	CY = (A == 0) || (X == 0);
+}
+:movs es_addr8_hl_rel, X is op=0x11; op=0x61; op=0xce; es_addr8_hl_rel & X & A { 
+	*[ram]:1 es_addr8_hl_rel = X;
+	Z = X == 0;
+	CY = (A == 0) || (X == 0);
+}
+
+#movw
+:movw AX, data16 is op=0x30; data16 & AX { AX = data16; }
+:movw BC, data16 is op=0x32; data16 & BC { BC = data16; }
+:movw DE, data16 is op=0x34; data16 & DE { DE = data16; }
+:movw HL, data16 is op=0x36; data16 & HL { HL = data16; }
+:movw saddrp, data16 is op=0xC9; saddrp; data16 { *[ram]:2 saddrp = data16; }
+:movw sfrp, data16 is op=0xCB; sfrp; data16 { *[ram]:2 sfrp = data16; }
+:movw AX, saddrp is op=0xAD; saddrp & AX { AX = *[ram]:2 saddrp; }
+:movw saddrp, AX is op=0xBD; saddrp & AX { *[ram]:2 saddrp = AX; }
+:movw AX, sfrp is op=0xAE; sfrp & AX { AX = *[ram]:2 sfrp; }
+:movw sfrp, AX is op=0xBE; sfrp & AX { *[ram]:2 sfrp = AX; }
+:movw AX, BC is op=0x13; AX & BC { AX = BC; }
+:movw AX, DE is op=0x15; AX & DE { AX = DE; }
+:movw AX, HL is op=0x17; AX & HL { AX = HL; }
+:movw BC, AX is op=0x12; AX & BC { BC = AX; }
+:movw DE, AX is op=0x14; AX & DE { DE = AX; }
+:movw HL, AX is op=0x16; AX & HL { HL = AX; }
+:movw AX, addr16_abs is op=0xAF; addr16_abs & AX { AX = *[ram]:2 addr16_abs; }
+:movw addr16_abs, AX is op=0xBF; addr16_abs & AX { *[ram]:2 addr16_abs = AX; }
+:movw AX, de_ind is op=0xA9 & de_ind & AX { AX = *[ram]:2 de_ind; }
+:movw de_ind, AX is op=0xB9 & de_ind & AX { *[ram]:2 de_ind = AX; }
+:movw AX, addr8_de_rel is op=0xAA; addr8_de_rel & AX { AX = *[ram]:2 addr8_de_rel; }
+:movw addr8_de_rel, AX is op=0xBA; addr8_de_rel & AX { *[ram]:2 addr8_de_rel = AX; }
+:movw AX, hl_ind is op=0xAB & hl_ind & AX { AX = *[ram]:2 hl_ind; }
+:movw hl_ind, AX is op=0xBB & hl_ind & AX { *[ram]:2 hl_ind = AX; }
+:movw AX, addr8_hl_rel is op=0xAC; addr8_hl_rel & AX { AX = *[ram]:2 addr8_hl_rel; }
+:movw addr8_hl_rel, AX is op=0xBC; addr8_hl_rel & AX { *[ram]:2 addr8_hl_rel = AX; }
+:movw AX, word_b is op=0x59; word_b & AX { AX = *[ram]:2 word_b; }
+
+:movw word_b, AX is op=0x58; word_b & AX { *[ram]:2 word_b = AX; }
+:movw AX, word_c is op=0x69; word_c & AX { AX = *[ram]:2 word_c; }
+:movw word_c, AX is op=0x68; word_c & AX { *[ram]:2 word_c = AX; }
+:movw AX, word_bc is op=0x79; word_bc & AX { AX = *[ram]:2 word_bc; }
+:movw word_bc, AX is op=0x78; word_bc & AX { *[ram]:2 word_bc = AX; }
+:movw AX, addr8_sp_rel is op=0xA8; addr8_sp_rel & AX { AX = *[ram]:2 addr8_sp_rel; }
+:movw addr8_sp_rel, AX is op=0xB8; addr8_sp_rel & AX { *[ram]:2 addr8_sp_rel = AX; }
+:movw BC, saddrp is op=0xDA; saddrp & BC { BC = *[ram]:2 saddrp; }
+:movw BC, addr16_abs is op=0xDB; addr16_abs & BC { BC = *[ram]:2 addr16_abs; }
+:movw DE, saddrp is op=0xEA; saddrp & DE { DE = *[ram]:2 saddrp; }
+:movw DE, addr16_abs is op=0xEB; addr16_abs & DE { DE = *[ram]:2 addr16_abs; }
+:movw HL, saddrp is op=0xFA; saddrp & HL { HL = *[ram]:2 saddrp; }
+:movw HL, addr16_abs is op=0xFB; addr16_abs & HL { HL = *[ram]:2 addr16_abs; }
+:movw AX, es_addr16_abs is op=0x11; op=0xAF; es_addr16_abs & AX { AX = *[ram]:2 es_addr16_abs; }
+:movw es_addr16_abs, AX is op=0x11; op=0xBF; es_addr16_abs & AX { *[ram]:2 es_addr16_abs = AX; }
+:movw AX, es_de_ind is op=0x11; op=0xA9 & es_de_ind & AX { AX = *[ram]:2 es_de_ind; }
+:movw es_de_ind, AX is op=0x11; op=0xB9 & es_de_ind & AX { *[ram]:2 es_de_ind = AX; }
+:movw AX, es_addr8_de_rel is op=0x11; op=0xAA; es_addr8_de_rel & AX { AX = *[ram]:2 es_addr8_de_rel; }
+:movw es_addr8_de_rel, AX is op=0x11; op=0xBA; es_addr8_de_rel & AX { *[ram]:2 es_addr8_de_rel = AX; }
+:movw AX, es_hl_ind is op=0x11; op=0xAB & es_hl_ind & AX { AX = *[ram]:2 es_hl_ind; }
+:movw es_hl_ind, AX is op=0x11; op=0xBB & es_hl_ind & AX { *[ram]:2 es_hl_ind = AX; }
+:movw AX, es_addr8_hl_rel is op=0x11; op=0xAC; es_addr8_hl_rel & AX { AX = *[ram]:2 es_addr8_hl_rel; }
+:movw es_addr8_hl_rel, AX is op=0x11; op=0xBC; es_addr8_hl_rel & AX { *[ram]:2 es_addr8_hl_rel = AX; }
+:movw AX, es_word_b is op=0x11; op=0x59; es_word_b & AX { AX = *[ram]:2 es_word_b; }
+:movw es_word_b, AX is op=0x11; op=0x58; es_word_b & AX { *[ram]:2 es_word_b = AX; }
+:movw AX, es_word_c is op=0x11; op=0x69; es_word_c & AX { AX = *[ram]:2 es_word_c; }
+:movw es_word_c, AX is op=0x11; op=0x68; es_word_c & AX { *[ram]:2 es_word_c = AX; }
+:movw AX, es_word_bc is op=0x11; op=0x79; es_word_bc & AX { AX = *[ram]:2 es_word_bc; }
+:movw es_word_bc, AX is op=0x11; op=0x78; es_word_bc & AX { *[ram]:2 es_word_bc = AX; }
+:movw BC, es_addr16_abs is op=0x11; op=0xDB; es_addr16_abs & BC { BC = *[ram]:2 es_addr16_abs; }
+:movw DE, es_addr16_abs is op=0x11; op=0xEB; es_addr16_abs & DE { DE = *[ram]:2 es_addr16_abs; }
+:movw HL, es_addr16_abs is op=0x11; op=0xFB; es_addr16_abs & HL { HL = *[ram]:2 es_addr16_abs; }
+
+
+# xchw
+:xchw AX, BC is op=0x33 & AX & BC { 
+	local tmp1 = AX;
+	AX = BC;
+	BC = tmp1;
+}
+:xchw AX, DE is op=0x35 & AX & DE { 
+	local tmp1 = AX;
+	AX = DE;
+	DE = tmp1;
+}
+:xchw AX, HL is op=0x37 & AX & HL { 
+	local tmp1 = AX;
+	AX = HL;
+	HL = tmp1;
+}
+
+#onew
+:onew AX is op=0xE6 & AX {
+	AX = 1;
+}
+:onew BC is op=0xE7 & BC {
+	BC = 1;
+}
+
+#clrw
+:clrw AX is op=0xF6 & AX {
+	AX = 0;
+}
+:clrw BC is op=0xF7 & BC {
+	BC = 0;
+}
+
+
+#add
+macro add_flags(out, src, dest) {
+	out = src + dest;
+	Z = out == 0;
+	CY = carry(src, dest);
+	AC = (src & 0b1111) + (dest & 0b1111) > 0b1111;
+}
+:add A, "#"data8 is op=0x0c; data8 & A { local tmp:1; add_flags(tmp, A, data8); A = tmp; }
+:add saddr, "#"data8 is op=0x0a; saddr; data8 { local tmp:1; add_flags(tmp, *[ram]:1 saddr, data8); *[ram]:1 saddr = tmp; }
+:add A, reg_xcbedlh is op=0x61; ophi=0x0 & reg_xcbedlh & A { local tmp:1; add_flags(tmp, A, reg_xcbedlh); A = tmp; }
+:add reg8_xacbedlh, A is op=0x61; ophi=0x0 & reg8_xacbedlh & A { local tmp:1; add_flags(tmp, reg8_xacbedlh, A); reg8_xacbedlh = tmp; }
+:add A, saddr is op=0x0B; saddr & A { local tmp:1; add_flags(tmp, A, *[ram]:1 saddr); A = tmp; }
+:add A, addr16_abs is op=0x0F; addr16_abs & A { local tmp:1; add_flags(tmp, A, *[ram]:1 addr16_abs); A = tmp; }
+:add A, hl_ind is op=0x0D & hl_ind & A { local tmp:1; add_flags(tmp, A, *[ram]:1 hl_ind); A = tmp; }
+:add A, addr8_hl_rel is op=0x0E & addr8_hl_rel & A { local tmp:1; add_flags(tmp, A, *[ram]:1 addr8_hl_rel); A = tmp; }
+:add A, hl_b_ind is op=0x61; op=0x80 & hl_b_ind & A { local tmp:1; add_flags(tmp, A, *[ram]:1 hl_b_ind); A = tmp; }
+:add A, hl_c_ind is op=0x61; op=0x82 & hl_c_ind & A { local tmp:1; add_flags(tmp, A, *[ram]:1 hl_c_ind); A = tmp; }
+:add A, es_addr16_abs is op=0x11; op=0x0F; es_addr16_abs & A { local tmp:1; add_flags(tmp, A, *[ram]:1 es_addr16_abs); A = tmp; }
+:add A, es_hl_ind is op=0x11; op=0x0D & es_hl_ind & A { local tmp:1; add_flags(tmp, A, *[ram]:1 es_hl_ind); A = tmp; }
+:add A, es_addr8_hl_rel is op=0x11; op=0x0E; es_addr8_hl_rel & A { local tmp:1; add_flags(tmp, A, *[ram]:1 es_addr8_hl_rel); A = tmp; }
+:add A, es_hl_b_ind is op=0x11; op=0x61; op=0x80 & es_hl_b_ind & A { local tmp:1; add_flags(tmp, A, *[ram]:1 es_hl_b_ind); A = tmp; }
+:add A, es_hl_c_ind is op=0x11; op=0x61; op=0x82 & es_hl_c_ind & A { local tmp:1; add_flags(tmp, A, *[ram]:1 es_hl_c_ind); A = tmp; }
+
+
+#addc
+macro addc_flags(out, src, dest) {
+	local tmp = src + dest;
+	out = tmp + CY;
+	Z = out == 0;
+	CY = carry(src, dest) || carry(tmp, CY);
+	AC = ((src & 0b1111) + (dest & 0b1111) + CY) > 0b1111;
+}
+:addc A, "#"data8 is op=0x1c; data8 & A { local tmp:1; addc_flags(tmp, A, data8); A = tmp; }
+:addc saddr, "#"data8 is op=0x1a; saddr; data8 { local tmp:1; addc_flags(tmp, *[ram]:1 saddr, data8); *[ram]:1 saddr = tmp; }
+:addc A, reg_xcbedlh is op=0x61; ophi=0x1 & reg_xcbedlh & A { local tmp:1; addc_flags(tmp, A, reg_xcbedlh); A = tmp; }
+:addc reg8_xacbedlh, A is op=0x61; ophi=0x1 & reg8_xacbedlh & A { local tmp:1; addc_flags(tmp, reg8_xacbedlh, A); reg8_xacbedlh = tmp; }
+:addc A, saddr is op=0x1B; saddr & A { local tmp:1; addc_flags(tmp, A, *[ram]:1 saddr); A = tmp; }
+:addc A, addr16_abs is op=0x1F; addr16_abs & A { local tmp:1; addc_flags(tmp, A, *[ram]:1 addr16_abs); A = tmp; }
+:addc A, hl_ind is op=0x1D & hl_ind & A { local tmp:1; addc_flags(tmp, A, *[ram]:1 hl_ind); A = tmp; }
+:addc A, addr8_hl_rel is op=0x1E & addr8_hl_rel & A { local tmp:1; addc_flags(tmp, A, *[ram]:1 addr8_hl_rel); A = tmp; }
+:addc A, hl_b_ind is op=0x61; op=0x90 & hl_b_ind & A { local tmp:1; addc_flags(tmp, A, *[ram]:1 hl_b_ind); A = tmp; }
+:addc A, hl_c_ind is op=0x61; op=0x92 & hl_c_ind & A { local tmp:1; addc_flags(tmp, A, *[ram]:1 hl_c_ind); A = tmp; }
+:addc A, es_addr16_abs is op=0x11; op=0x1F; es_addr16_abs & A { local tmp:1; addc_flags(tmp, A, *[ram]:1 es_addr16_abs); A = tmp; }
+:addc A, es_hl_ind is op=0x11; op=0x1D & es_hl_ind & A { local tmp:1; addc_flags(tmp, A, *[ram]:1 es_hl_ind); A = tmp; }
+:addc A, es_addr8_hl_rel is op=0x11; op=0x1E; es_addr8_hl_rel & A { local tmp:1; addc_flags(tmp, A, *[ram]:1 es_addr8_hl_rel); A = tmp; }
+:addc A, es_hl_b_ind is op=0x11; op=0x61; op=0x90 & es_hl_b_ind & A { local tmp:1; addc_flags(tmp, A, *[ram]:1 es_hl_b_ind); A = tmp; }
+:addc A, es_hl_c_ind is op=0x11; op=0x61; op=0x92 & es_hl_c_ind & A { local tmp:1; add_flags(tmp, A, *[ram]:1 es_hl_c_ind); A = tmp; }
+
+#sub
+macro sub_flags(out, src, dest) {
+	out = src - dest;
+	Z = out == 0;
+	CY = sborrow(src, dest);
+	AC = (dest & 0b1111) > (src & 0b1111);
+}
+:sub A, "#"data8 is op=0x2c; data8 & A { local tmp:1; sub_flags(tmp, A, data8); A = tmp; }
+:sub saddr, "#"data8 is op=0x2a; saddr; data8 { local tmp:1; sub_flags(tmp, *[ram]:1 saddr, data8); *[ram]:1 saddr = tmp; }
+:sub A, reg_xcbedlh is op=0x61; ophi=0x2 & reg_xcbedlh & A { local tmp:1; sub_flags(tmp, A, reg_xcbedlh); A = tmp; }
+:sub reg8_xacbedlh, A is op=0x61; ophi=0x2 & reg8_xacbedlh & A { local tmp:1; sub_flags(tmp, reg8_xacbedlh, A); reg8_xacbedlh = tmp; }
+:sub A, saddr is op=0x2B; saddr & A { local tmp:1; sub_flags(tmp, A, *[ram]:1 saddr); A = tmp; }
+:sub A, addr16_abs is op=0x2F; addr16_abs & A { local tmp:1; sub_flags(tmp, A, *[ram]:1 addr16_abs); A = tmp; }
+:sub A, hl_ind is op=0x2D & hl_ind & A { local tmp:1; sub_flags(tmp, A, *[ram]:1 hl_ind); A = tmp; }
+:sub A, addr8_hl_rel is op=0x2E & addr8_hl_rel & A { local tmp:1; sub_flags(tmp, A, *[ram]:1 addr8_hl_rel); A = tmp; }
+:sub A, hl_b_ind is op=0x61; op=0xa0 & hl_b_ind & A { local tmp:1; sub_flags(tmp, A, *[ram]:1 hl_b_ind); A = tmp; }
+:sub A, hl_c_ind is op=0x61; op=0xa2 & hl_c_ind & A { local tmp:1; sub_flags(tmp, A, *[ram]:1 hl_c_ind); A = tmp; }
+:sub A, es_addr16_abs is op=0x11; op=0x2F; es_addr16_abs & A { local tmp:1; sub_flags(tmp, A, *[ram]:1 es_addr16_abs); A = tmp; }
+:sub A, es_hl_ind is op=0x11; op=0x2D & es_hl_ind & A { local tmp:1; sub_flags(tmp, A, *[ram]:1 es_hl_ind); A = tmp; }
+:sub A, es_addr8_hl_rel is op=0x11; op=0x2E ; es_addr8_hl_rel & A { local tmp:1; sub_flags(tmp, A, *[ram]:1 es_addr8_hl_rel); A = tmp; }
+:sub A, es_hl_b_ind is op=0x11; op=0x61; op=0xa0 & es_hl_b_ind & A { local tmp:1; sub_flags(tmp, A, *[ram]:1 es_hl_b_ind); A = tmp; }
+:sub A, es_hl_c_ind is op=0x11; op=0x61; op=0xa2 & es_hl_c_ind & A { local tmp:1; sub_flags(tmp, A, *[ram]:1 es_hl_c_ind); A = tmp; }
+
+#subc
+macro subc_flags(out, src, dest) {
+	local tmp:1 = src - dest;
+	out = tmp - CY;
+	Z = out == 0;
+	CY = src < dest || tmp < CY;
+	AC = (dest & 0b1111) + CY > (src & 0b1111);
+}
+:subc A, "#"data8 is op=0x3c; data8 & A { local tmp:1; subc_flags(tmp, A, data8); A = tmp; }
+:subc saddr, "#"data8 is op=0x3a; saddr; data8 { local tmp:1; subc_flags(tmp, *[ram]:1 saddr, data8); *[ram]:1 saddr = tmp; }
+:subc A, reg_xcbedlh is op=0x61; ophi=0x3 & reg_xcbedlh & A { local tmp:1; subc_flags(tmp, A, reg_xcbedlh); A = tmp; }
+:subc reg8_xacbedlh, A is op=0x61; ophi=0x3 & reg8_xacbedlh & A { local tmp:1; subc_flags(tmp, reg8_xacbedlh, A); reg8_xacbedlh = tmp; }
+:subc A, saddr is op=0x3B; saddr & A { local tmp:1; subc_flags(tmp, A, *[ram]:1 saddr); A = tmp; }
+:subc A, addr16_abs is op=0x3F; addr16_abs & A { local tmp:1; subc_flags(tmp, A, *[ram]:1 addr16_abs); A = tmp; }
+:subc A, hl_ind is op=0x3D & hl_ind & A { local tmp:1; subc_flags(tmp, A, *[ram]:1 hl_ind); A = tmp; }
+:subc A, addr8_hl_rel is op=0x3E & addr8_hl_rel & A { local tmp:1; subc_flags(tmp, A, *[ram]:1 addr8_hl_rel); A = tmp; }
+:subc A, hl_b_ind is op=0x61; op=0xb0 & hl_b_ind & A { local tmp:1; subc_flags(tmp, A, *[ram]:1 hl_b_ind); A = tmp; }
+:subc A, hl_c_ind is op=0x61; op=0xb2 & hl_c_ind & A { local tmp:1; subc_flags(tmp, A, *[ram]:1 hl_c_ind); A = tmp; }
+:subc A, es_addr16_abs is op=0x11; op=0x3F; es_addr16_abs & A { local tmp:1; subc_flags(tmp, A, *[ram]:1 es_addr16_abs); A = tmp; }
+:subc A, es_hl_ind is op=0x11; op=0x3D & es_hl_ind & A { local tmp:1; subc_flags(tmp, A, *[ram]:1 es_hl_ind); A = tmp; }
+:subc A, es_addr8_hl_rel is op=0x11; op=0x3E ; es_addr8_hl_rel & A { local tmp:1; subc_flags(tmp, A, *[ram]:1 es_addr8_hl_rel); A = tmp; }
+:subc A, es_hl_b_ind is op=0x11; op=0x61; op=0xb0 & es_hl_b_ind & A { local tmp:1; subc_flags(tmp, A, *[ram]:1 es_hl_b_ind); A = tmp; }
+:subc A, es_hl_c_ind is op=0x11; op=0x61; op=0xb2 & es_hl_c_ind & A { local tmp:1; subc_flags(tmp, A, *[ram]:1 es_hl_c_ind); A = tmp; }
+
+#and
+:and A, "#"data8 is op=0x5c; data8 & A { local tmp:1 = A & data8; A = tmp; }
+:and saddr, "#"data8 is op=0x5a; saddr; data8 { local tmp:1 = (*[ram]:1 saddr) & data8; *[ram]:1 saddr = tmp; Z = tmp == 0; }
+:and A, reg_xcbedlh is op=0x61; ophi=0x5 & reg_xcbedlh & A { local tmp:1 = A & reg_xcbedlh; A = tmp; Z = tmp == 0; }
+:and reg8_xacbedlh, A is op=0x61; ophi=0x5 & reg8_xacbedlh & A { local tmp:1 = reg8_xacbedlh & A; reg8_xacbedlh = tmp; Z = tmp == 0;}
+:and A, saddr is op=0x5B; saddr & A { local tmp:1 = A & (*[ram]:1 saddr); A = tmp; Z = tmp == 0; Z = tmp == 0; }
+:and A, addr16_abs is op=0x5F; addr16_abs & A { local tmp:1 = A & (*[ram]:1 addr16_abs); A = tmp; Z = tmp == 0; }
+:and A, hl_ind is op=0x5D & hl_ind & A { local tmp:1 = A & (*[ram]:1 hl_ind); A = tmp; Z = tmp == 0; }
+:and A, addr8_hl_rel is op=0x5E & addr8_hl_rel & A { local tmp:1 = A & (*[ram]:1 addr8_hl_rel); A = tmp; Z = tmp == 0; }
+:and A, hl_b_ind is op=0x61; op=0xD0 & hl_b_ind & A { local tmp:1 = A & (*[ram]:1 hl_b_ind); A = tmp; Z = tmp == 0; }
+:and A, hl_c_ind is op=0x61; op=0xD2 & hl_c_ind & A { local tmp:1 = A & (*[ram]:1 hl_c_ind); A = tmp; Z = tmp == 0; }
+:and A, es_addr16_abs is op=0x11; op=0x5F; es_addr16_abs & A { local tmp:1 = A & (*[ram]:1 es_addr16_abs); A = tmp; Z = tmp == 0; }
+:and A, es_hl_ind is op=0x11; op=0x5D & es_hl_ind & A { local tmp:1 = A & (*[ram]:1 es_hl_ind); A = tmp; Z = tmp == 0; }
+:and A, es_addr8_hl_rel is op=0x11; op=0x5E ; es_addr8_hl_rel & A { local tmp:1 = A & (*[ram]:1 es_addr8_hl_rel); A = tmp; Z = tmp == 0; }
+:and A, es_hl_b_ind is op=0x11; op=0x61; op=0xD0 & es_hl_b_ind & A { local tmp:1 = A & (*[ram]:1 es_hl_b_ind); A = tmp; Z = tmp == 0; }
+:and A, es_hl_c_ind is op=0x11; op=0x61; op=0xD2 & es_hl_c_ind & A { local tmp:1 = A & (*[ram]:1 es_hl_c_ind); A = tmp; Z = tmp == 0; }
+
+
+
+#TODO: check operations in clock table
+
+
+#or
+:or A, "#"data8 is op=0x6c; data8 & A { local tmp:1 = A | data8; A = tmp; Z = tmp == 0;}
+:or saddr, "#"data8 is op=0x6a; saddr; data8 { local tmp:1 = (*[ram]:1 saddr) | data8; *[ram]:1 saddr = tmp; Z = tmp == 0; }
+:or A, reg_xcbedlh is op=0x61; ophi=0x6 & reg_xcbedlh & A { local tmp:1 = A | reg_xcbedlh; A = tmp; Z = tmp == 0; }
+:or reg8_xacbedlh, A is op=0x61; ophi=0x6 & reg8_xacbedlh & A { local tmp:1 = reg8_xacbedlh | A; reg8_xacbedlh = tmp; Z = tmp == 0; }
+:or A, saddr is op=0x6B; saddr & A { local tmp:1 = A | (*[ram]:1 saddr); A = tmp; Z = tmp == 0; }
+:or A, addr16_abs is op=0x6F; addr16_abs & A { local tmp:1 = A | (*[ram]:1 addr16_abs); A = tmp; Z = tmp == 0; }
+:or A, hl_ind is op=0x6D & hl_ind & A { local tmp:1 = A | (*[ram]:1 hl_ind); A = tmp; Z = tmp == 0; }
+:or A, addr8_hl_rel is op=0x6E & addr8_hl_rel & A { local tmp:1 = A | (*[ram]:1 addr8_hl_rel); A = tmp; Z = tmp == 0; }
+:or A, hl_b_ind is op=0x61; op=0xE0 & hl_b_ind & A { local tmp:1 = A | (*[ram]:1 hl_b_ind); A = tmp; Z = tmp == 0; }
+:or A, hl_c_ind is op=0x61; op=0xE2 & hl_c_ind & A { local tmp:1 = A | (*[ram]:1 hl_c_ind); A = tmp; Z = tmp == 0; }
+:or A, es_addr16_abs is op=0x11; op=0x6F; es_addr16_abs & A { local tmp:1 = A | (*[ram]:1 es_addr16_abs); A = tmp; Z = tmp == 0; }
+:or A, es_hl_ind is op=0x11; op=0x6D & es_hl_ind & A { local tmp:1 = A | (*[ram]:1 es_hl_ind); A = tmp; Z = tmp == 0; }
+:or A, es_addr8_hl_rel is op=0x11; op=0x6E ; es_addr8_hl_rel & A { local tmp:1 = A | (*[ram]:1 es_addr8_hl_rel); A = tmp; Z = tmp == 0; }
+:or A, es_hl_b_ind is op=0x11; op=0x61; op=0xE0 & es_hl_b_ind & A { local tmp:1 = A | (*[ram]:1 es_hl_b_ind); A = tmp; Z = tmp == 0; }
+:or A, es_hl_c_ind is op=0x11; op=0x61; op=0xE2 & es_hl_c_ind & A { local tmp:1 = A | (*[ram]:1 es_hl_c_ind); A = tmp; Z = tmp == 0; }
+
+
+
+#xor
+:xor A, "#"data8 is op=0x7c; data8 & A { local tmp:1 = A ^ data8;  A = tmp; Z = tmp == 0; }
+:xor saddr, "#"data8 is op=0x7a; saddr; data8 { local tmp:1 = (*[ram]:1 saddr) ^ data8; *[ram]:1 saddr = tmp; Z = tmp == 0; }
+:xor A, reg_xcbedlh is op=0x61; ophi=0x7 & reg_xcbedlh & A { local tmp:1 = A ^ reg_xcbedlh; A = tmp; Z = tmp == 0; }
+:xor reg8_xacbedlh, A is op=0x61; ophi=0x7 & reg8_xacbedlh & A { local tmp:1 = reg8_xacbedlh ^ A; reg8_xacbedlh = tmp; Z = tmp == 0; }
+:xor A, saddr is op=0x7B; saddr & A { local tmp:1 = A ^ (*[ram]:1 saddr); A = tmp; Z = tmp == 0; }
+:xor A, addr16_abs is op=0x7F; addr16_abs & A { local tmp:1 = A ^ (*[ram]:1 addr16_abs); A = tmp; Z = tmp == 0; }
+:xor A, hl_ind is op=0x7D & hl_ind & A { local tmp:1 = A ^ (*[ram]:1 hl_ind); A = tmp; Z = tmp == 0; }
+:xor A, addr8_hl_rel is op=0x7E & addr8_hl_rel & A { local tmp:1 = A ^ (*[ram]:1 addr8_hl_rel); A = tmp; Z = tmp == 0; }
+:xor A, hl_b_ind is op=0x61; op=0xF0 & hl_b_ind & A { local tmp:1 = A ^ (*[ram]:1 hl_b_ind); A = tmp; Z = tmp == 0; }
+:xor A, hl_c_ind is op=0x61; op=0xF2 & hl_c_ind & A { local tmp:1 = A ^ (*[ram]:1 hl_c_ind); A = tmp; Z = tmp == 0; }
+:xor A, es_addr16_abs is op=0x11; op=0x7F; es_addr16_abs & A { local tmp:1 = A ^ (*[ram]:1 es_addr16_abs); A = tmp; Z = tmp == 0; }
+:xor A, es_hl_ind is op=0x11; op=0x7D & es_hl_ind & A { local tmp:1 = A ^ (*[ram]:1 es_hl_ind); A = tmp; Z = tmp == 0; }
+:xor A, es_addr8_hl_rel is op=0x11; op=0x7E ; es_addr8_hl_rel & A { local tmp:1 = A ^ (*[ram]:1 es_addr8_hl_rel); A = tmp; Z = tmp == 0; }
+:xor A, es_hl_b_ind is op=0x11; op=0x61; op=0xF0 & es_hl_b_ind & A { local tmp:1 = A ^ (*[ram]:1 es_hl_b_ind); A = tmp; Z = tmp == 0; }
+:xor A, es_hl_c_ind is op=0x11; op=0x61; op=0xF2 & es_hl_c_ind & A { local tmp:1 = A ^ (*[ram]:1 es_hl_c_ind); A = tmp; Z = tmp == 0; }
+
+#cmp
+macro cmp_flags(dst, src) {
+	local out:1 = dst - src;
+	Z = out == 0;
+	CY = sborrow(dst, src);
+	AC = (src & 0b1111) > (dst & 0b1111);
+}
+:cmp A, "#"data8 is op=0x4c; data8 & A { cmp_flags(A, data8); }
+:cmp saddr, "#"data8 is op=0x4a; saddr; data8 { cmp_flags(*[ram]:1 saddr, data8); }
+:cmp A, reg_xcbedlh is op=0x61; ophi=0x4 & reg_xcbedlh & A { cmp_flags(A, reg_xcbedlh); }
+:cmp reg8_xacbedlh, A is op=0x61; ophi=0x4 & reg8_xacbedlh & A { cmp_flags(reg8_xacbedlh, A); }
+:cmp A, saddr is op=0x4B; saddr & A { cmp_flags(A, *[ram]:1 saddr); }
+:cmp A, addr16_abs is op=0x4F; addr16_abs & A { cmp_flags( A, *[ram]:1 addr16_abs); }
+:cmp A, hl_ind is op=0x4D & hl_ind & A { cmp_flags(A, *[ram]:1 hl_ind); }
+:cmp A, addr8_hl_rel is op=0x4E & addr8_hl_rel & A { cmp_flags(A, *[ram]:1 addr8_hl_rel); }
+:cmp A, hl_b_ind is op=0x61; op=0xC0 & hl_b_ind & A { cmp_flags(A, *[ram]:1 hl_b_ind); }
+:cmp A, hl_c_ind is op=0x61; op=0xC2 & hl_c_ind & A { cmp_flags(A, *[ram]:1 hl_c_ind); }
+:cmp addr16_abs, data8 is op=0x40; addr16_abs; data8 { cmp_flags(data8, *[ram]:1 addr16_abs); }
+:cmp A, es_addr16_abs is op=0x11; op=0x4F; es_addr16_abs & A { cmp_flags(A, *[ram]:1 es_addr16_abs); }
+:cmp A, es_hl_ind is op=0x11; op=0x4D & es_hl_ind & A { cmp_flags(A, *[ram]:1 es_hl_ind); }
+:cmp A, es_addr8_hl_rel is op=0x11; op=0x4E ; es_addr8_hl_rel & A { cmp_flags(A, *[ram]:1 es_addr8_hl_rel); }
+:cmp A, es_hl_b_ind is op=0x11; op=0x61; op=0xC0 & es_hl_b_ind & A { cmp_flags(A, *[ram]:1 es_hl_b_ind); }
+:cmp A, es_hl_c_ind is op=0x11; op=0x61; op=0xC2 & es_hl_c_ind & A { cmp_flags(A, *[ram]:1 es_hl_c_ind); }
+:cmp es_addr16_abs, data8 is op=0x11; op=0x40; es_addr16_abs; data8 { cmp_flags(data8, *[ram]:1 es_addr16_abs); }
+
+#cmp0
+macro cmp0(x) {
+	Z = x == 0;
+	AC = 0;
+	CY = 0;
+}
+
+macro cmp(x, y) {
+	local cmptmp:1 = x - y;
+	Z = cmptmp == 0;
+	CY = (cmptmp != 0) || (x == 0) || (y == 0);
+	AC = sborrow(x, y) != 0;
+}
+
+:cmp0 A is op=0xD1 & A { cmp0(A); }
+:cmp0 X is op=0xD0 & X { cmp0(X); }
+:cmp0 B is op=0xD3 & B { cmp0(B); }
+:cmp0 C is op=0xD2 & C { cmp0(C); }
+:cmp0 saddr is op=0xD4; saddr { local tmp:1 = *[ram] saddr; cmp0(tmp); }
+:cmp0 addr16_abs is op=0xD5; addr16_abs { local tmp:1 = *[ram] addr16_abs; cmp0(tmp); }
+:cmp0 addr16_es_rel is op=0x11; op=0xd5; addr16_es_rel { local tmp:1 = *[ram] addr16_es_rel; cmp0(tmp); }
+
+#cmps
+:cmps X, addr8_hl_rel is op=0x61; op=0xde; addr8_hl_rel & X { local tmp:1 = *[ram]:1 addr8_hl_rel; cmp(X, tmp); }
+:cmps X, es_addr8_hl_rel is op=0x11; op=0x61; op=0xde; es_addr8_hl_rel & X { local tmp:1 = *[ram]:1 es_addr8_hl_rel; cmp(X, tmp); }
+
+#addw
+macro addw_flags(dst, src) {
+	local tmp:2 = dst + src;
+	Z = tmp == 0;
+	# AC is undef
+	CY = carry(dst, src);
+	dst = tmp;
+}
+:addw AX, data16 is op=0x04 & AX; data16 { addw_flags(AX, data16);}
+:addw AX, AX2 is op=0x01 & AX & AX2 { addw_flags(AX, AX);}
+:addw AX, BC is op=0x03 & AX & BC { addw_flags(AX, BC);}
+:addw AX, DE is op=0x05 & AX & DE { addw_flags(AX, DE);}
+:addw AX, HL is op=0x07 & AX & HL { addw_flags(AX, HL);}
+:addw AX, saddrp is op=0x06 & AX; saddrp { addw_flags(AX, *[ram]:2 saddrp);}
+:addw AX, addr16_abs is op=0x02 & AX; addr16_abs { addw_flags(AX, *[ram]:2 addr16_abs);}
+:addw AX, addr8_hl_rel is op=0x61; op=0x09; addr8_hl_rel & AX { addw_flags(AX, *[ram]:2 addr8_hl_rel);}
+:addw AX, es_addr16_abs is op=0x11; op=0x02; es_addr16_abs & AX { addw_flags(AX, *[ram]:2 es_addr16_abs);}
+:addw AX, es_addr8_hl_rel is op=0x11; op=0x61; op=0x09; es_addr8_hl_rel & AX { addw_flags(AX, *[ram]:2 es_addr8_hl_rel);}
+
+#subw
+macro subw_flags(dst, src) {
+	local tmp:2 = dst - src;
+	Z = tmp == 0;
+	# AC is undef
+	CY = sborrow(dst, src);
+	dst = tmp;
+}
+:subw AX, data16 is op=0x24 & AX; data16 { subw_flags(AX, data16);}
+:subw AX, BC is op=0x23 & AX & BC { subw_flags(AX, BC);}
+:subw AX, DE is op=0x25 & AX & DE { subw_flags(AX, DE);}
+:subw AX, HL is op=0x27 & AX & HL { subw_flags(AX, HL);}
+:subw AX, saddrp is op=0x26 & AX; saddrp { subw_flags(AX, *[ram]:2 saddrp);}
+:subw AX, addr16_abs is op=0x22 & AX; addr16_abs { subw_flags(AX, *[ram]:2 addr16_abs);}
+:subw AX, addr8_hl_rel is op=0x61; op=0x29; addr8_hl_rel & AX { subw_flags(AX, *[ram]:2 addr8_hl_rel);}
+:subw AX, es_addr16_abs is op=0x11; op=0x22; es_addr16_abs & AX { subw_flags(AX, *[ram]:2 es_addr16_abs);}
+:subw AX, es_addr8_hl_rel is op=0x11; op=0x61; op=0x29; es_addr8_hl_rel & AX { subw_flags(AX, *[ram]:2 es_addr8_hl_rel);}
+
+
+#cmpw
+macro cmpw(a, b) {
+	Z = (a - b) == 0;
+	CY = sborrow(a, b);
+	AC = 0;
+}
+:cmpw AX, data16 is op=0x44 ; data16 & AX { cmpw(AX, data16); }
+:cmpw AX, BC is op=0x45 & AX & BC { cmpw(AX, BC); }
+:cmpw AX, DE is op=0x46 & AX & DE { cmpw(AX, DE); }
+:cmpw AX, HL is op=0x47 & AX & HL { cmpw(AX, HL); }
+:cmpw AX, saddrp is op=0x46; saddrp & AX { cmpw(AX, *[ram]:2 saddrp); }
+:cmpw AX, addr16_abs is op=0x42; addr16_abs & AX { cmpw(AX, *[ram]:2 addr16_abs); }
+:cmpw AX, addr8_hl_rel is op=0x61; op=0x49; addr8_hl_rel & AX { cmpw(AX, *[ram]:2 addr8_hl_rel); }
+:cmpw AX, es_addr16_abs is op=0x11; op=0x42; es_addr16_abs & AX { cmpw(AX, *[ram]:2 es_addr16_abs); }
+:cmpw AX, es_addr8_hl_rel is op=0x11; op=0x61; op=0x49; es_addr8_hl_rel & AX { cmpw(AX, *[ram]:2 es_addr8_hl_rel); }
+
+# mul
+:mulu X is op=0xd6 & X & AX & A { AX = zext(A) * zext(X); }
+:mulhu is op=0xce ; op=0xFB ; op=0x01 & BCAX & BC & AX { BCAX = zext(AX) * zext(BC); }
+:mulh is op=0xce ; op=0xFB ; op=0x02 & BCAX & BC & AX { BCAX = sext(AX) * sext(BC); }
+:divhu is op=0xce ; op=0xFB ; op=0x03 & AX & DE { 
+	local div:2 = AX / DE;
+	local rem:2 = AX % DE;
+	AX = div;
+	DE = rem;
+}
+:divwu is op=0xce ; op=0xFB ; op=0x0b & BCAX & HLDE {
+	local div:4 = BCAX / HLDE;
+	local rem:4 = BCAX % HLDE;
+	BCAX = div;
+	HLDE = rem;
+}
+:machu is op=0xce ; op=0xFB ; op=0x05 & AX & BC {
+	local tmp:8 = zext(MACR) + zext(AX) * zext(BC);
+	MACR = MACR + zext(AX) * zext(BC);
+	CY = MACR != tmp:4;
+	AC = 0;
+}
+:mach is op=0xce ; op=0xFB ; op=0x06 & AX & BC {
+		local tmp:8 =  sext(MACR) + sext(AX) * sext(BC);
+		MACR = MACR + sext(AX) * sext(BC);
+		CY = MACR != tmp:4;
+		AC = MACR s< 0;
+}
+
+#inc
+macro inc_flags(v) {
+	Z = v == 0xFF;
+	AC = (v & 0b1111) == 0b1111;
+}
+:inc reg8_xacbedlh is ophi=0x8 & reg8_xacbedlh { inc_flags(reg8_xacbedlh); reg8_xacbedlh = reg8_xacbedlh + 1; }
+:inc saddr is op=0xa4; saddr { inc_flags(*[ram]:1 saddr); *[ram]:1 saddr = (*[ram]:1 saddr) + 1; }
+:inc addr16_abs is op=0xa0; addr16_abs { inc_flags(*[ram]:1 addr16_abs); *[ram]:1 addr16_abs = (*[ram]:1 addr16_abs) + 1; }
+:inc addr8_hl_rel is op=0x61; op=0x59; addr8_hl_rel { inc_flags(*[ram]:1 addr8_hl_rel); *[ram]:1 addr8_hl_rel = (*[ram]:1 addr8_hl_rel) + 1; }
+:inc es_addr16_abs is op=0x11; op=0xa0; es_addr16_abs { inc_flags(*[ram]:1 es_addr16_abs); *[ram]:1 es_addr16_abs = (*[ram]:1 es_addr16_abs) + 1; }
+:inc es_addr8_hl_rel is op=0x11; op=0x61; op=0x59; es_addr8_hl_rel { inc_flags(*[ram]:1 es_addr8_hl_rel); *[ram]:1 es_addr8_hl_rel = (*[ram]:1 es_addr8_hl_rel) + 1; }
+
+
+# dec
+macro dec_flags(v) {
+	Z = v == 1;
+	AC = v == 0;
+}
+:dec reg8_xacbedlh is ophi=0x9 & reg8_xacbedlh { dec_flags(reg8_xacbedlh); reg8_xacbedlh = reg8_xacbedlh - 1; }
+:dec saddr is op=0xb4; saddr { dec_flags(*[ram]:1 saddr); *[ram]:1 saddr = (*[ram]:1 saddr) - 1; }
+:dec addr16_abs is op=0xb0; addr16_abs { dec_flags(*[ram]:1 addr16_abs); *[ram]:1 addr16_abs = (*[ram]:1 addr16_abs) - 1; }
+:dec addr8_hl_rel is op=0x61; op=0x69; addr8_hl_rel { dec_flags(*[ram]:1 addr8_hl_rel); *[ram]:1 addr8_hl_rel = (*[ram]:1 addr8_hl_rel) - 1; }
+:dec es_addr16_abs is op=0x11; op=0xb0; es_addr16_abs { dec_flags(*[ram]:1 es_addr16_abs); *[ram]:1 es_addr16_abs = (*[ram]:1 es_addr16_abs) - 1; }
+:dec es_addr8_hl_rel is op=0x11; op=0x61; op=0x69; es_addr8_hl_rel { dec_flags(*[ram]:1 es_addr8_hl_rel); *[ram]:1 es_addr8_hl_rel = (*[ram]:1 es_addr8_hl_rel) - 1; }
+
+#incw
+:incw AX is op=0xa1 & AX { AX = AX + 1; }
+:incw BC is op=0xa3 & BC { BC = BC + 1; }
+:incw DE is op=0xa5 & DE { DE = DE + 1; }
+:incw HL is op=0xa7 & HL { HL = HL + 1; }
+:incw saddr is op=0xa6; saddr { *[ram]:2 saddr = (*[ram]:2 saddr) + 1; }
+:incw addr16_abs is op=0xa2; addr16_abs { *[ram]:2 addr16_abs = (*[ram]:2 addr16_abs) + 1; }
+:incw addr8_hl_rel is op=0x61; op=0x79; addr8_hl_rel { *[ram]:2 addr8_hl_rel = (*[ram]:2 addr8_hl_rel) + 1; }
+:incw es_addr16_abs is op=0x11; op=0xa2; es_addr16_abs { *[ram]:2 es_addr16_abs = (*[ram]:2 es_addr16_abs) + 1; }
+:incw es_addr8_hl_rel is op=0x11; op=0x61; op=0x79; es_addr8_hl_rel { *[ram]:2 es_addr8_hl_rel = (*[ram]:2 es_addr8_hl_rel) + 1; }
+
+#decw
+:decw AX is op=0xb1 & AX { AX = AX - 1; }
+:decw BC is op=0xb3 & BC { BC = BC - 1; }
+:decw DE is op=0xb5 & DE { DE = DE - 1; }
+:decw HL is op=0xb7 & HL { HL = HL - 1; }
+:decw saddr is op=0xb6; saddr { *[ram]:2 saddr = (*[ram]:2 saddr) - 1; }
+:decw addr16_abs is op=0xb2; addr16_abs { *[ram]:2 addr16_abs = (*[ram]:2 addr16_abs) - 1; }
+:decw addr8_hl_rel is op=0x61; op=0x89; addr8_hl_rel { *[ram]:2 addr8_hl_rel = (*[ram]:2 addr8_hl_rel) - 1; }
+:decw es_addr16_abs is op=0x11; op=0xb2; es_addr16_abs { *[ram]:2 es_addr16_abs = (*[ram]:2 es_addr16_abs) - 1; }
+:decw es_addr8_hl_rel is op=0x11; op=0x61; op=0x89; es_addr8_hl_rel { *[ram]:2 es_addr8_hl_rel = (*[ram]:2 es_addr8_hl_rel) - 1; }
+
+# shr
+:shr A, immhi is op=0x31; immlo=0xA & imm7=0 & ophi > 0 & immhi & A  {
+	CY = (A >> (immhi - 1)) != 0; 
+	A = A >> immhi;
+}
+
+#shrw
+:shrw AX, immhi is op=0x31 ; immhi & immlo=0xE & AX { 
+	CY = (AX & 1) != 0;
+	AX = AX >> immhi;
+}
+
+# shl
+:shl A, immhi is op=0x31; immhi & ophi > 0 & immlo=0x9 & A { 
+	CY = (A >> (8 - immhi)) != 0;
+	A = A << immhi;
+}
+:shl B, immhi is op=0x31; immhi & ophi > 0 & immlo=0x8 & B { 
+	CY = (B >> (8 - immhi)) != 0;
+	B = B << immhi;
+}
+:shl C, immhi is op=0x31; immhi & ophi > 0 & immlo=0x7 & C { 
+	CY = (C >> (8 - immhi)) != 0;
+	C = C << immhi;
+}
+
+# shlw
+:shlw AX, immhi is op=0x31 ; immhi & ophi > 0 & immlo=0xD & AX { 
+	CY = ((AX >> 15) & 1) != 0;
+	AX = AX << immhi;
+}
+:shlw BC, immhi is op=0x31 ; immhi & ophi > 0 & immlo=0xC & BC & AX { 
+	CY = (AX & 1) != 0;
+	BC = BC >> immhi;
+}
+
+# SAR
+:sar A, immhi is op=0x31 ; immhi & ophi > 0 & immlo=0xB & A { 
+	CY = ((A >> (immhi - 1)) & 1) != 0;
+	A = A s>> immhi;
+}
+
+# sarw
+:sarw AX, immhi is op=0x31 ; immhi & ophi > 0 & immlo=0xF & AX { 
+	CY = ((AX >> (immhi - 1)) & 1) != 0;
+	AX = AX s>> immhi;
+}
+
+#ror
+:ror A, 1 is op=0x61; op=0xDB & A { 
+	local lsb:1 = A & 1;
+	A = (A >> 1) | (lsb << 7);
+	CY = lsb==1;
+}
+
+#rol
+:rol A, 1 is op=0x61; op=0xEB & A { 
+	local msb:1 = A >> 7;
+	A = (A << 1) | msb;
+	CY = msb==1;
+}
+
+#rorc
+:rorc A, 1 is op=0x61; op=0xFB & A { 
+	local lsb:1 = A & 1;
+	A = (A >> 1) | (CY << 7);
+	CY = lsb==1;
+}
+
+#rolc
+:rolc A, 1 is op=0x61; op=0xDC & A { 
+	local msb:1 = A >> 7;
+	A = (A << 1) | CY;
+	CY = msb==1;
+}
+
+# rolwc
+:rolwc AX, 1 is op=0x61; op=0xEE & AX { 
+	local msb:2 = AX >> 15;
+	AX = (AX << 1) | zext(CY);
+	CY = msb==1;
+}
+:rolwc BC, 1 is op=0x61; op=0xFE & BC { 
+	local msb:2 = BC >> 15;
+	BC = (BC << 1) | zext(CY);
+	CY = msb==1;
+}
+
+# mov1
+:mov1 "CY", saddr"."imm4_6 is op=0x71; imm7=0 & imm4_6 & immlo=0x4; saddr {
+	local flag:1 = ((*[ram]:1 saddr) & (1 << imm4_6)) != 0;
+	CY = flag; 
+}
+:mov1 "CY", sfr"."imm4_6 is op=0x71; imm7=0 & imm4_6 & immlo=0xC; sfr {
+	local flag:1 = ((*[ram]:1 sfr) & (1 << imm4_6)) != 0;
+	CY = flag;
+}
+:mov1 "CY", A^"."imm4_6 is op=0x71; imm7=1 & imm4_6 & immlo=0xC & A {
+	local flag:1 = (A & (1 << imm4_6)) != 0;
+	CY = flag;
+}
+:mov1 "CY", PSW^"."imm4_6 is op=0x71; imm7=0 & imm4_6 & immlo=0xC; op=0xFA & PSW {
+	local flag:1 = (PSW & (1 << imm4_6)) != 0;
+	CY = flag;
+}
+:mov1 "CY", hl_ind"."imm4_6 is op=0x71; imm7=1 & imm4_6 & immlo=0x4 & hl_ind {
+	local flag:1 = ((*[ram]:1 hl_ind) & (1 << imm4_6)) != 0;
+	CY = flag;
+}
+:mov1 saddr"."imm4_6, "CY" is op=0x71; imm7=0 & imm4_6 & immlo=0x1; saddr {
+	*[ram]:1 saddr = (*[ram]:1 saddr) | (CY << imm4_6);
+}
+:mov1 sfr"."imm4_6, "CY" is op=0x71; imm7=0 & imm4_6 & immlo=0x9; sfr {
+	*[ram]:1 sfr = (*[ram]:1 sfr) | (CY << imm4_6);
+}
+:mov1 A^"."imm4_6, "CY" is op=0x71; imm7=1 & imm4_6 & immlo=0x9; saddr & A {
+	A = A | (CY << imm4_6);
+}
+:mov1 PSW^"."imm4_6, "CY" is op=0x71; imm7=0 & imm4_6 & immlo=0x9; op=0xFA & PSW {
+	PSW = PSW | (CY << imm4_6);
+}
+:mov1 hl_ind"."imm4_6, "CY" is op=0x71; imm7=1 & imm4_6 & immlo=0x1 & hl_ind {
+	*[ram]:1 hl_ind = (*[ram]:1 hl_ind) | (CY << imm4_6);
+}
+:mov1 "CY", es_hl_ind"."imm4_6 is op=0x11; op=0x71; imm7=1 & imm4_6 & immlo=0x4 & es_hl_ind {
+	local flag:1 = ((*[ram]:1 es_hl_ind) & (1 << imm4_6)) != 0;
+	CY = flag;
+}
+:mov1 es_hl_ind"."imm4_6, "CY" is op=0x11; op=0x71; imm7=1 & imm4_6 & immlo=0x1 & es_hl_ind {
+	*[ram]:1 es_hl_ind = (*[ram]:1 es_hl_ind) | (CY << imm4_6);
+}
+
+
+#and1
+:and1 "CY", saddr"."imm4_6 is op=0x71; imm7=0 & imm4_6 & immlo=0x5; saddr {
+	local flag:1 = ((*[ram]:1 saddr) & (1 << imm4_6)) != 0;
+	CY = flag & CY;
+}
+:and1 "CY", sfr"."imm4_6 is op=0x71; imm7=0 & imm4_6 & immlo=0xD; sfr {
+	local flag:1 = ((*[ram]:1 sfr) & (1 << imm4_6)) != 0;
+	CY = flag & CY;
+}
+:and1 "CY", A^"."imm4_6 is op=0x71; imm7=1 & imm4_6 & immlo=0xD & A {
+	local flag:1 = (A & (1 << imm4_6)) != 0;
+	CY = flag & CY;
+}
+:and1 "CY", PSW^"."imm4_6 is op=0x71; imm7=0 & imm4_6 & immlo=0xD; op=0xFA & PSW {
+	local flag:1 = (PSW & (1 << imm4_6)) != 0;
+	CY = flag & CY;
+}
+:and1 "CY", hl_ind"."imm4_6 is op=0x71; imm7=1 & imm4_6 & immlo=0x5 & hl_ind {
+	local flag:1 = ((*[ram]:1 hl_ind) & (1 << imm4_6)) != 0;
+	CY = flag & CY;
+}
+:and1 "CY", es_hl_ind"."imm4_6 is op=0x11; op=0x71; imm7=1 & imm4_6 & immlo=0x5 & es_hl_ind {
+	local flag:1 = ((*[ram]:1 es_hl_ind) & (1 << imm4_6)) != 0;
+	CY = flag & CY;
+}
+
+#or1
+:or1 "CY", saddr"."imm4_6 is op=0x71; imm7=0 & imm4_6 & immlo=0x6; saddr {
+	local flag:1 = ((*[ram]:1 saddr) & (1 << imm4_6)) != 0;
+	CY = flag | CY;
+}
+:or1 "CY", sfr"."imm4_6 is op=0x71; imm7=0 & imm4_6 & immlo=0xE; sfr {
+	local flag:1 = ((*[ram]:1 sfr) & (1 << imm4_6)) != 0;
+	CY = flag | CY;
+}
+:or1 "CY", A^"."imm4_6 is op=0x71; imm7=1 & imm4_6 & immlo=0xE & A {
+	local flag:1 = (A & (1 << imm4_6)) != 0;
+	CY = flag | CY;
+}
+:or1 "CY", PSW^"."imm4_6 is op=0x71; imm7=0 & imm4_6 & immlo=0xE; op=0xFA & PSW {
+	local flag:1 = (PSW & (1 << imm4_6)) != 0;
+	CY = flag | CY;
+}
+:or1 "CY", hl_ind"."imm4_6 is op=0x71; imm7=1 & imm4_6 & immlo=0x6 & hl_ind {
+	local flag:1 = ((*[ram]:1 hl_ind) & (1 << imm4_6)) != 0;
+	CY = flag | CY;
+}
+:or1 "CY", es_hl_ind"."imm4_6 is op=0x11; op=0x71; imm7=1 & imm4_6 & immlo=0x6 & es_hl_ind {
+	local flag:1 = ((*[ram]:1 es_hl_ind) & (1 << imm4_6)) != 0;
+	CY = flag | CY;
+}
+
+
+#xor1
+:xor1 "CY", saddr"."imm4_6 is op=0x71; imm7=0 & imm4_6 & immlo=0x7; saddr {
+	local flag:1 = ((*[ram]:1 saddr) & (1 << imm4_6)) != 0;
+	CY = flag ^ CY;
+}
+:xor1 "CY", sfr"."imm4_6 is op=0x71; imm7=0 & imm4_6 & immlo=0xF; sfr {
+	local flag:1 = ((*[ram]:1 sfr) & (1 << imm4_6)) != 0;
+	CY = flag ^ CY;
+}
+:xor1 "CY", A^"."imm4_6 is op=0x71; imm7=1 & imm4_6 & immlo=0xF & A {
+	local flag:1 = (A & (1 << imm4_6)) != 0;
+	CY = flag ^ CY;
+}
+:xor1 "CY", PSW^"."imm4_6 is op=0x71; imm7=0 & imm4_6 & immlo=0xF; op=0xFA & PSW {
+	local flag:1 = (PSW & (1 << imm4_6)) != 0;
+	CY = flag ^ CY;
+}
+:xor1 "CY", hl_ind"."imm4_6 is op=0x71; imm7=1 & imm4_6 & immlo=0x7 & hl_ind {
+	local flag:1 = ((*[ram]:1 hl_ind) & (1 << imm4_6)) != 0;
+	CY = flag ^ CY;
+}
+:xor1 "CY", es_hl_ind"."imm4_6 is op=0x11; op=0x71; imm7=1 & imm4_6 & immlo=0x7 & es_hl_ind {
+	local flag:1 = ((*[ram]:1 es_hl_ind) & (1 << imm4_6)) != 0;
+	CY = flag ^ CY;
+}
+
+
+#set1
+:set1 saddr"."imm4_6 is op=0x71; imm7=0 & imm4_6 & immlo=0x2; saddr {
+	*[ram]:1 saddr = (*[ram]:1 saddr) | (1 << imm4_6);
+}
+:set1 sfr"."imm4_6 is op=0x71; imm7=0 & imm4_6 & immlo=0xA; sfr {
+	*[ram]:1 sfr = (*[ram]:1 sfr) | (1 << imm4_6);
+}
+:set1 A^"."imm4_6 is op=0x71; imm7=1 & imm4_6 & immlo=0xA & A {
+	A = A | (1 << imm4_6);
+}
+:set1 addr16_abs"."imm4_6 is op=0x71; imm7=0 & imm4_6 & immlo=0; addr16_abs {
+	*[ram]:1 addr16_abs = (*[ram]:1 addr16_abs) | (1 << imm4_6);
+}
+:set1 PSW^"."imm4_6 is op=0x71; imm7=0 & imm4_6 & immlo=0xA; op=0xFA & PSW {
+	PSW = PSW | (1 << imm4_6);
+}
+:set1 hl_ind"."imm4_6 is op=0x71; imm7=1 & imm4_6 & immlo=0x2 & hl_ind {
+	*[ram]:1 hl_ind = (*[ram]:1 hl_ind) | (1 << imm4_6);
+}
+:set1 es_addr16_abs"."imm4_6 is op=0x11; op=0x71; imm7=0 & imm4_6 & immlo=0; es_addr16_abs {
+	*[ram]:1 es_addr16_abs = (*[ram]:1 es_addr16_abs) | (1 << imm4_6);
+}
+:set1 es_hl_ind"."imm4_6 is op=0x11; op=0x71; imm7=1 & imm4_6 & immlo=0x2 & es_hl_ind {
+	*[ram]:1 es_hl_ind = (*[ram]:1 es_hl_ind) | (1 << imm4_6);
+}
+
+# clr1
+:clr1 saddr"."imm4_6 is op=0x71; imm7=0 & imm4_6 & immlo=0x3; saddr {
+	*[ram]:1 saddr = (*[ram]:1 saddr) & (~(1 << imm4_6));
+}
+:clr1 sfr"."imm4_6 is op=0x71; imm7=0 & imm4_6 & immlo=0xB; sfr {
+	*[ram]:1 sfr = (*[ram]:1 sfr) & (~(1 << imm4_6));
+}
+:clr1 A^"."imm4_6 is op=0x71; imm7=1 & imm4_6 & immlo=0xB & A {
+	A = A & (~(1 << imm4_6));
+}
+:clr1 addr16_abs"."imm4_6 is op=0x71; imm7=0 & imm4_6 & immlo=0x8; addr16_abs {
+	*[ram]:1 addr16_abs = (*[ram]:1 addr16_abs) & (~(1 << imm4_6));
+}
+:clr1 PSW^"."imm4_6 is op=0x71; imm7=0 & imm4_6 & immlo=0xB; op=0xFA & PSW {
+	PSW = PSW & (~(1 << imm4_6));
+}
+:clr1 hl_ind"."imm4_6 is op=0x71; imm7=1 & imm4_6 & immlo=0x3 & hl_ind {
+	*[ram]:1 hl_ind = (*[ram]:1 hl_ind) & (~(1 << imm4_6));
+}
+:clr1 es_addr16_abs"."imm4_6 is op=0x11; op=0x71; imm7=0 & imm4_6 & immlo=0x8; es_addr16_abs {
+	*[ram]:1 es_addr16_abs = (*[ram]:1 es_addr16_abs) & (~(1 << imm4_6));
+}
+:clr1 es_hl_ind"."imm4_6 is op=0x11; op=0x71; imm7=1 & imm4_6 & immlo=0x3 & es_hl_ind {
+	*[ram]:1 es_hl_ind = (*[ram]:1 es_hl_ind) & (~(1 << imm4_6));
+}
+
+#set1
+:"set1 CY" is op=0x71; op=0x80 { CY = 1; }
+
+#clr1
+:"clr1 CY" is op=0x71; op=0x88 { CY = 0; }
+
+#not1
+:"not1 CY" is op=0x71; op=0xc0 { CY = !CY; }
+
+# call
+:call AX is op=0x61; op=0xCA & AX { 
+	local tmp:4 = inst_next;
+	push32(tmp);
+	local addr:3 = (zext(CS) << 16) | zext(AX);
+	goto [addr];
+}
+:call BC is op=0x61; op=0xDA & BC { 
+	local tmp:4 = inst_next;
+	push32(tmp);
+	local addr:3 = (zext(CS) << 16) | zext(BC);
+	goto [addr];
+}
+:call DE is op=0x61; op=0xEA & DE { 
+	local tmp:4 = inst_next;
+	push32(tmp);
+	local addr:3 = (zext(CS) << 16) | zext(DE);
+	goto [addr];
+}
+:call HL is op=0x61; op=0xFA & HL {
+	local tmp:4 = inst_next;
+	push32(tmp);
+	local addr:3 = (zext(CS) << 16) | zext(HL);
+	goto [addr];
+}
+:call addr16_rel is op=0xFE; addr16_rel {
+	local tmp:4 = inst_next;
+	push32(tmp);
+	local tmp2:2 = *[ram]:2 addr16_rel;
+	local addr:3 = zext(tmp2);
+	goto [addr];
+} 
+:call addr16_abs is op=0xfd; addr16_abs {
+	local tmp:4 = inst_next;
+	push32(tmp);
+	local addr:3 = addr16_abs;
+	goto [addr];
+}
+:call addr20_abs is op=0xfc; addr20_abs {
+	local tmp:4 = inst_next;
+	push32(tmp);
+	local addr:3 = addr20_abs;
+	goto [addr];
+}
+
+# callt
+callt_addr: val is data8 & data0_1=0 [ val = 80 + (data8 - 0x84)/8; ] { export *[const]:3 val; }
+:callt callt_addr is op=0x61; callt_addr {
+	local tmp:4 = inst_next;
+	push32(tmp);
+	local addr:3 = zext(*[ram]:2 callt_addr);
+	goto [addr];
+}
+
+# brk
+define pcodeop breakpoint;
+:brk is op=0x61; op=0xcc { breakpoint(); }
+
+# ret
+:ret is op=0xD7 {
+	local tmp:4 = 0;
+	pop32(tmp);
+	local addr:2 = tmp:2;
+	return [addr];
+}
+
+#reti
+:reti is op=0x61; op=0xfc {
+	local addr:3 = 0;
+	pop24(addr);
+	pop8(PSW);
+	pop8(SP);
+	return [addr];
+}
+
+#retb
+:retb is op=0x61; op=0xec { 
+	local addr:3 = 0;
+	pop24(addr);
+	pop8(PSW);
+	pop8(SP);
+	return [addr];
+}
+
+
+# push
+:push PSW is op=0x61 ; op=0xDD & PSW {
+	local tmp:2 = zext(PSW);
+	push16(tmp);
+}
+:push AX is op=0xC1 & AX {
+	push16(AX);
+}
+:push BC is op=0xC3 & BC {
+	push16(BC);
+}
+:push DE is op=0xC5 & DE {
+	push16(DE);
+}
+:push HL is op=0xC7 & HL {
+	push16(HL);
+}
+
+#pop
+:pop PSW is op=0x61 ; op=0xCD & PSW {
+	local tmp:2 = 0;
+	pop16(tmp);
+	PSW = tmp:1;
+}
+:pop AX is op=0xC0 & AX {
+	pop16(AX);
+}
+:pop BC is op=0xC2 & BC {
+	pop16(BC);
+}
+:pop DE is op=0xC4 & DE {
+	pop16(DE);
+}
+:pop HL is op=0xC6 & HL {
+	pop16(HL);
+}
+
+#movw
+:movw "SP", data16 is op=0xcb ; op=0xf8 ; data16 { local tmp:2 = data16 & 0xFFFE; SP = tmp;}
+:movw "SP", AX is op=0xbe ; op=0xf8 & AX { SP = AX & 0xFFFE; }
+:movw AX, "SP" is op=0xAe ; op=0xf8 & AX { AX = SP; }
+# The datasheet also shows {BC, DE, HL} <- SP, these are actually implemented using 16 bit absolute addressing from the memory mapped SP register at 0x00FFF8
+
+
+:addw "SP", data8 is op=0x10 ; data8 { SP = SP + data8; }
+:subw "SP", data8 is op=0x20 ; data8 { SP = SP - data8; }
+
+#br
+:br AX is op=0x61; op=0xCB & AX {
+	local tgt:3 = (zext(CS) << 16) | zext(AX); 
+	goto [tgt];
+}
+:br addr8_rel is op=0xEF ; addr8_rel { goto [addr8_rel]; }
+:br addr16_rel is op=0xEE ; addr16_rel { goto [addr16_rel]; }
+:br addr16_abs is op=0xED ; addr16_abs { goto [addr16_abs]; }
+:br addr20_abs is op=0xEC ; addr20_abs { goto [addr20_abs]; }
+
+#bc
+:bc addr8_rel is op=0xDC ; addr8_rel {
+	if (CY == 0) goto <end>;
+	goto [addr8_rel];
+	<end>
+}
+
+# bnc
+:bnc addr8_rel is op=0xDE ; addr8_rel {
+	if (CY != 0) goto <end>;
+	goto [addr8_rel];
+	<end>
+}
+
+:bz addr8_rel is op=0xDD ; addr8_rel {
+	if (Z == 0) goto <end>;
+	goto [addr8_rel];
+	<end>
+}
+
+#bnz
+:bnz addr8_rel is op=0xDF ; addr8_rel {
+	if (Z != 0) goto <end>;
+	goto [addr8_rel];
+	<end>
+}
+
+#bh
+:bh addr8_rel is op=0x61 ; op=0xC3 ; addr8_rel {
+	local flag:1 = (Z==1) || (CY==1);
+	if (flag == 0) goto <end>;
+	goto [addr8_rel];
+	<end>
+}
+
+#bnh
+:bnh addr8_rel is op=0x61 ; op=0xD3 ; addr8_rel {
+	local flag:1 = (Z==1) || (CY==1);
+	if (flag != 0) goto <end>;
+	goto [addr8_rel];
+	<end>
+}
+
+#bt
+:bt saddr"."imm4_6, addr8_rel is op=0x31; imm7=0 & imm4_6 & immlo=2; saddr; addr8_rel { 
+	local flag:1 = ((*[ram]:1 saddr) & (1 << imm4_6)) != 0;
+	if (flag) goto addr8_rel;
+}
+:bt sfr"."imm4_6, addr8_rel is op=0x31; imm7=1 & imm4_6 & immlo=2; sfr; addr8_rel {
+	local flag:1 = ((*[ram]:1 sfr) & (1 << imm4_6)) != 0;
+	if (flag) goto addr8_rel;
+}
+:bt A^"."imm4_6, addr8_rel is op=0x31; imm7=0 & imm4_6 & immlo=3; addr8_rel & A {
+	local flag:1 = (A & (1 << imm4_6)) != 0;
+	if (flag) goto addr8_rel;
+}
+:bt PSW^"."imm4_6, addr8_rel is op=0x31; imm7=1 & imm4_6 & immlo=2; op=0xFA; addr8_rel & PSW { 
+	local flag:1 = (PSW & (1 << imm4_6)) != 0;
+	if (flag) goto addr8_rel;
+}
+:bt hl_ind"."imm4_6, addr8_rel is op=0x31; imm7=1 & imm4_6 & immlo=3; addr8_rel & hl_ind { 
+	local flag:1 = ((*[ram]:1 hl_ind) & (1 << imm4_6)) != 0;
+	if (flag) goto addr8_rel;
+}
+:bt es_hl_ind"."imm4_6, addr8_rel is op=0x11; op=0x31; imm7=1 & imm4_6 & immlo=3; addr8_rel & es_hl_ind { 
+	local flag:1 = ((*[ram]:1 es_hl_ind) & (1 << imm4_6)) == 0;
+	if (flag) goto addr8_rel;
+}
+
+#bf
+:bf saddr"."imm4_6, addr8_rel is op=0x31; imm7=0 & imm4_6 & immlo=4; saddr; addr8_rel { 
+	local flag:1 = ((*[ram]:1 saddr) & (1 << imm4_6)) == 0;
+	if (flag) goto addr8_rel;
+}
+:bf sfr"."imm4_6, addr8_rel is op=0x31; imm7=1 & imm4_6 & immlo=4; sfr; addr8_rel { 
+	local flag:1 = ((*[ram]:1 sfr) & (1 << imm4_6)) == 0;
+	if (flag) goto addr8_rel;
+}
+:bf A^"."imm4_6, addr8_rel is op=0x31; imm7=0 & imm4_6 & immlo=5; addr8_rel & A { 
+	local flag:1 = (A & (1 << imm4_6)) == 0;
+	if (flag) goto addr8_rel;
+}
+:bf PSW^"."imm4_6, addr8_rel is op=0x31; imm7=1 & imm4_6 & immlo=4; op=0xFA; addr8_rel & PSW { 
+	local flag:1 = (PSW & (1 << imm4_6)) == 0;
+	if (flag) goto addr8_rel;
+}
+:bf hl_ind"."imm4_6, addr8_rel is op=0x31; imm7=1 & imm4_6 & immlo=5; addr8_rel & hl_ind { 
+	local flag:1 = ((*[ram]:1 hl_ind) & (1 << imm4_6)) == 0;
+	if (flag) goto addr8_rel;
+}
+:bf es_hl_ind"."imm4_6, addr8_rel is op=0x11; op=0x31; imm7=1 & imm4_6 & immlo=5; addr8_rel & es_hl_ind { 
+	local flag:1 = ((*[ram]:1 es_hl_ind) & (1 << imm4_6)) == 0;
+	if (flag) goto addr8_rel;
+}
+
+
+# btclr
+macro _btclr_mem(addr, off, dest) {
+	local og:1 =  *[ram]:1 addr;
+	local flag:1 = (og & (1 << off)) != 0;
+	
+	if(flag == 0) goto <end>;
+		*[ram]:1 addr = og & (~(1 << off));
+		goto dest;
+	<end>
+}
+macro _btclr(src, off, dest) {
+	local flag:1 = (src & (1 << off)) != 0;
+	
+	if(flag == 0) goto <end>;
+		src = src & (~(1 << off));
+		goto dest;
+	<end>
+}
+
+:btclr saddr"."imm4_6  addr8_rel is op=0x31; imm7=0 & imm4_6 & immlo=0 ; saddr ; addr8_rel { _btclr_mem(saddr, imm4_6, addr8_rel); }
+:btclr sfr"."imm4_6  addr8_rel is op=0x31; imm7=1 & imm4_6 & immlo=0 ; sfr ; addr8_rel { _btclr_mem(sfr, imm4_6, addr8_rel); }
+:btclr A^"."imm4_6  addr8_rel is op=0x31; imm7=0 & imm4_6 & immlo=1 ; addr8_rel & A { _btclr(A, imm4_6, addr8_rel); }
+:btclr PSW^"."imm4_6  addr8_rel is op=0x31; imm7=1 & imm4_6 & immlo=0; op=0xFA ; addr8_rel & PSW { _btclr(PSW, imm4_6, addr8_rel); }
+:btclr hl_ind"."imm4_6  addr8_rel is op=0x31; imm7=1 & imm4_6 & immlo=1; addr8_rel & hl_ind { _btclr_mem(hl_ind, imm4_6, addr8_rel); }
+:btclr es_hl_ind"."imm4_6  addr8_rel is op=0x11; op=0x31; imm7=1 & imm4_6 & immlo=1; addr8_rel & es_hl_ind { _btclr_mem(es_hl_ind, imm4_6, addr8_rel); }
+
+:skc is op=0x61;op=0xC8 { 
+	if(CY != 1) goto <next>;
+	delayslot(1); # Include instruction after skc
+	<next>
+	goto inst_next; # Goto instruction after the next one
+}
+:sknc is op=0x61;op=0xD8 { 
+	if(CY != 0) goto <next>;
+	delayslot(1);
+	<next>
+	goto inst_next;
+}
+:skz is op=0x61;op=0xE8 { 
+	if(Z != 1) goto <next>;
+	delayslot(1);
+	<next>
+	goto inst_next;
+}
+:sknz is op=0x61;op=0xF8 { 
+	if(Z != 0) goto <next>;
+	delayslot(1);
+	<next>
+	goto inst_next;
+}
+:skh is op=0x61;op=0xE3 { 
+	if(Z == 0 || CY == 0) goto <next>;
+	delayslot(1);
+	<next>
+	goto inst_next;
+}
+:sknh is op=0x61;op=0xF3 { 
+	if(Z == 1 || CY == 1) goto <next>;
+	delayslot(1);
+	<next>
+	goto inst_next;
+}
+
+define pcodeop switch_bank;
+:"SEL RB0" is op=0x61;op=0xCF [current_bank = 0; globalset(inst_next,current_bank);] { switch_bank(0:1); }
+:"SEL RB1" is op=0x61;op=0xDF [current_bank = 1; globalset(inst_next,current_bank);] { switch_bank(1:1); }
+:"SEL RB2" is op=0x61;op=0xEF [current_bank = 2; globalset(inst_next,current_bank);] { switch_bank(2:1); }
+:"SEL RB3" is op=0x61;op=0xFF [current_bank = 3; globalset(inst_next,current_bank);] { switch_bank(3:1); }
+
+define pcodeop nop;
+:nop is op=0x00 { nop(); }
+
+define pcodeop ei;
+:EI is op=0x71;op=0x7A;op=0xFA { ei(); }
+
+define pcodeop di;
+:DI is op=0x71;op=0x7B;op=0xFA { di(); }
+
+define pcodeop halt;
+:halt is op=0x61;op=0xED { halt(); }
+
+define pcodeop stop;
+:stop is op=0x61;op=0xFD { stop(); }
+
+# PREFIX is a address extension prefix, not a instruction on its own
