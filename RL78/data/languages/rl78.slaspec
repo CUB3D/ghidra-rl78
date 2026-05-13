@@ -545,8 +545,8 @@ macro addc_flags(out, src, dest) {
 	local tmp = src + dest;
 	out = tmp + CY;
 	Z = out == 0;
-	CY = carry(src, dest) || carry(tmp, CY);
 	AC = ((src & 0b1111) + (dest & 0b1111) + CY) > 0b1111;
+	CY = carry(src, dest) || carry(tmp, CY);
 }
 :addc A, "#"data8 is op=0x1c; data8 & A { local tmp:1; addc_flags(tmp, A, data8); A = tmp; }
 :addc saddr, "#"data8 is op=0x1a; saddr; data8 { local tmp:1; addc_flags(tmp, *[ram]:1 saddr, data8); *[ram]:1 saddr = tmp; }
@@ -592,8 +592,8 @@ macro subc_flags(out, src, dest) {
 	local tmp:1 = src - dest;
 	out = tmp - CY;
 	Z = out == 0;
-	CY = src < dest || tmp < CY;
 	AC = (dest & 0b1111) + CY > (src & 0b1111);
+	CY = src < dest || tmp < CY;
 }
 :subc A, "#"data8 is op=0x3c; data8 & A { local tmp:1; subc_flags(tmp, A, data8); A = tmp; }
 :subc saddr, "#"data8 is op=0x3a; saddr; data8 { local tmp:1; subc_flags(tmp, *[ram]:1 saddr, data8); *[ram]:1 saddr = tmp; }
@@ -612,7 +612,7 @@ macro subc_flags(out, src, dest) {
 :subc A, es_hl_c_ind is op=0x11; op=0x61; op=0xb2 & es_hl_c_ind & A { local tmp:1; subc_flags(tmp, A, *[ram]:1 es_hl_c_ind); A = tmp; }
 
 #and
-:and A, "#"data8 is op=0x5c; data8 & A { local tmp:1 = A & data8; A = tmp; }
+:and A, "#"data8 is op=0x5c; data8 & A { local tmp:1 = A & data8; A = tmp; Z = tmp == 0; }
 :and saddr, "#"data8 is op=0x5a; saddr; data8 { local tmp:1 = (*[ram]:1 saddr) & data8; *[ram]:1 saddr = tmp; Z = tmp == 0; }
 :and A, reg_xcbedlh is op=0x61; ophi=0x5 & reg_xcbedlh & A { local tmp:1 = A & reg_xcbedlh; A = tmp; Z = tmp == 0; }
 :and reg8_xacbedlh, A is op=0x61; ophi=0x5 & reg8_xacbedlh & A { local tmp:1 = reg8_xacbedlh & A; reg8_xacbedlh = tmp; Z = tmp == 0;}
@@ -686,13 +686,13 @@ macro cmp_flags(dst, src) {
 :cmp A, addr8_hl_rel is op=0x4E & addr8_hl_rel & A { cmp_flags(A, *[ram]:1 addr8_hl_rel); }
 :cmp A, hl_b_ind is op=0x61; op=0xC0 & hl_b_ind & A { cmp_flags(A, *[ram]:1 hl_b_ind); }
 :cmp A, hl_c_ind is op=0x61; op=0xC2 & hl_c_ind & A { cmp_flags(A, *[ram]:1 hl_c_ind); }
-:cmp addr16_abs, data8 is op=0x40; addr16_abs; data8 { cmp_flags(data8, *[ram]:1 addr16_abs); }
+:cmp addr16_abs, data8 is op=0x40; addr16_abs; data8 { cmp_flags(*[ram]:1 addr16_abs, data8); }
 :cmp A, es_addr16_abs is op=0x11; op=0x4F; es_addr16_abs & A { cmp_flags(A, *[ram]:1 es_addr16_abs); }
 :cmp A, es_hl_ind is op=0x11; op=0x4D & es_hl_ind & A { cmp_flags(A, *[ram]:1 es_hl_ind); }
 :cmp A, es_addr8_hl_rel is op=0x11; op=0x4E ; es_addr8_hl_rel & A { cmp_flags(A, *[ram]:1 es_addr8_hl_rel); }
 :cmp A, es_hl_b_ind is op=0x11; op=0x61; op=0xC0 & es_hl_b_ind & A { cmp_flags(A, *[ram]:1 es_hl_b_ind); }
 :cmp A, es_hl_c_ind is op=0x11; op=0x61; op=0xC2 & es_hl_c_ind & A { cmp_flags(A, *[ram]:1 es_hl_c_ind); }
-:cmp es_addr16_abs, data8 is op=0x11; op=0x40; es_addr16_abs; data8 { cmp_flags(data8, *[ram]:1 es_addr16_abs); }
+:cmp es_addr16_abs, data8 is op=0x11; op=0x40; es_addr16_abs; data8 { cmp_flags(*[ram]:1 es_addr16_abs, data8); }
 
 #cmp0
 macro cmp0(x) {
@@ -852,38 +852,38 @@ macro dec_flags(v) {
 
 # shr
 :shr A, immhi is op=0x31; immlo=0xA & imm7=0 & ophi > 0 & immhi & A  {
-	CY = (A >> (immhi - 1)) != 0; 
+	CY = ((A >> (immhi - 1))&1) != 0; 
 	A = A >> immhi;
 }
 
 #shrw
 :shrw AX, immhi is op=0x31 ; immhi & immlo=0xE & AX { 
-	CY = (AX & 1) != 0;
+	CY = ((AX >> (immhi - 1))&1) != 0;
 	AX = AX >> immhi;
 }
 
 # shl
 :shl A, immhi is op=0x31; immhi & ophi > 0 & immlo=0x9 & A { 
-	CY = (A >> (8 - immhi)) != 0;
+	CY = ((A >> (8 - immhi))&1) != 0;
 	A = A << immhi;
 }
 :shl B, immhi is op=0x31; immhi & ophi > 0 & immlo=0x8 & B { 
-	CY = (B >> (8 - immhi)) != 0;
+	CY = ((B >> (8 - immhi))&1) != 0;
 	B = B << immhi;
 }
 :shl C, immhi is op=0x31; immhi & ophi > 0 & immlo=0x7 & C { 
-	CY = (C >> (8 - immhi)) != 0;
+	CY = )(C >> (8 - immhi))&1) != 0;
 	C = C << immhi;
 }
 
 # shlw
 :shlw AX, immhi is op=0x31 ; immhi & ophi > 0 & immlo=0xD & AX { 
-	CY = ((AX >> 15) & 1) != 0;
+	CY = ((AX >> (16-immhi)) & 1) != 0;
 	AX = AX << immhi;
 }
 :shlw BC, immhi is op=0x31 ; immhi & ophi > 0 & immlo=0xC & BC & AX { 
-	CY = (AX & 1) != 0;
-	BC = BC >> immhi;
+	CY = ((BC >> (16-immhi)) & 1) != 0;
+	BC = BC << immhi;
 }
 
 # SAR
@@ -965,7 +965,7 @@ macro dec_flags(v) {
 :mov1 sfr"."imm4_6, "CY" is op=0x71; imm7=0 & imm4_6 & immlo=0x9; sfr {
 	*[ram]:1 sfr = (*[ram]:1 sfr) | (CY << imm4_6);
 }
-:mov1 A^"."imm4_6, "CY" is op=0x71; imm7=1 & imm4_6 & immlo=0x9; saddr & A {
+:mov1 A^"."imm4_6, "CY" is op=0x71; imm7=1 & imm4_6 & immlo=0x9 & A {
 	A = A | (CY << imm4_6);
 }
 :mov1 PSW^"."imm4_6, "CY" is op=0x71; imm7=0 & imm4_6 & immlo=0x9; op=0xFA & PSW {
@@ -1152,8 +1152,7 @@ macro dec_flags(v) {
 :call addr16_rel is op=0xFE; addr16_rel {
 	local tmp:4 = inst_next;
 	push32(tmp);
-	local tmp2:2 = *[ram]:2 addr16_rel;
-	local addr:3 = zext(tmp2);
+	local addr:3 = zext(addr16_rel);
 	goto [addr];
 } 
 :call addr16_abs is op=0xfd; addr16_abs {
@@ -1186,7 +1185,8 @@ define pcodeop breakpoint;
 :ret is op=0xD7 {
 	local tmp:4 = 0;
 	pop32(tmp);
-	local addr:2 = tmp:2;
+    SP = SP + 1;
+	local addr:3 = tmp:3;
 	return [addr];
 }
 
@@ -1195,7 +1195,6 @@ define pcodeop breakpoint;
 	local addr:3 = 0;
 	pop24(addr);
 	pop8(PSW);
-	pop8(SP);
 	return [addr];
 }
 
@@ -1204,7 +1203,6 @@ define pcodeop breakpoint;
 	local addr:3 = 0;
 	pop24(addr);
 	pop8(PSW);
-	pop8(SP);
 	return [addr];
 }
 
@@ -1331,7 +1329,7 @@ define pcodeop breakpoint;
 	if (flag) goto addr8_rel;
 }
 :bt es_hl_ind"."imm4_6, addr8_rel is op=0x11; op=0x31; imm7=1 & imm4_6 & immlo=3; addr8_rel & es_hl_ind { 
-	local flag:1 = ((*[ram]:1 es_hl_ind) & (1 << imm4_6)) == 0;
+	local flag:1 = ((*[ram]:1 es_hl_ind) & (1 << imm4_6)) != 0;
 	if (flag) goto addr8_rel;
 }
 
