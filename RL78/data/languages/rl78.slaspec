@@ -872,7 +872,7 @@ macro dec_flags(v) {
 	B = B << immhi;
 }
 :shl C, immhi is op=0x31; immhi & ophi > 0 & immlo=0x7 & C { 
-	CY = )(C >> (8 - immhi))&1) != 0;
+	CY = ((C >> (8 - immhi))&1) != 0;
 	C = C << immhi;
 }
 
