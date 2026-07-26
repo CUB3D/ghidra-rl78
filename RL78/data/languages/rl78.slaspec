@@ -1152,7 +1152,7 @@ macro dec_flags(v) {
 :call addr16_rel is op=0xFE; addr16_rel {
 	local tmp:4 = inst_next;
 	push32(tmp);
-	local addr:3 = zext(addr16_rel);
+	local addr:3 = addr16_rel;
 	goto [addr];
 } 
 :call addr16_abs is op=0xfd; addr16_abs {
