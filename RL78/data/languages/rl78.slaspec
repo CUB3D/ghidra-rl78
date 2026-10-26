@@ -264,9 +264,9 @@ es_addr8_hl_rel: ES:addr8_hl_rel is ES & addr8_hl_rel { local tmp:3 = (zext(ES) 
 es_addr8_de_rel: ES:addr8_de_rel is ES & addr8_de_rel { local tmp:3 = (zext(ES) << 16) + addr8_de_rel; export *[const]:3 tmp; }
 
 
-word_b: addr16_abs[B] is addr16_abs & B { local tmp:3 = addr16_abs + zext(B)*2; export *[const]:3 tmp; }
-word_c: addr16_abs[C] is addr16_abs & C { local tmp:3 = addr16_abs + zext(C)*2; export *[const]:3 tmp; }
-word_bc: addr16_abs[BC] is addr16_abs & BC { local tmp:3 = addr16_abs + zext(BC)*2; export *[const]:3 tmp; }
+word_b: addr16_abs[B] is addr16_abs & B { local tmp:3 = addr16_abs + zext(B); export *[const]:3 tmp; }
+word_c: addr16_abs[C] is addr16_abs & C { local tmp:3 = addr16_abs + zext(C); export *[const]:3 tmp; }
+word_bc: addr16_abs[BC] is addr16_abs & BC { local tmp:3 = addr16_abs + zext(BC); export *[const]:3 tmp; }
 
 es_word_b: ES:addr16_abs[B] is addr16_abs & B & ES { local tmp:3 = (zext(ES) << 16) + addr16_abs + zext(B)*2; export *[const]:3 tmp; }
 es_word_c: ES:addr16_abs[C] is addr16_abs & C & ES { local tmp:3 = (zext(ES) << 16) + addr16_abs + zext(C)*2; export *[const]:3 tmp; }
@@ -1191,7 +1191,6 @@ define pcodeop breakpoint;
 :ret is op=0xD7 {
 	local tmp:4 = 0;
 	pop32(tmp);
-    SP = SP + 1;
 	local addr:3 = tmp:3;
 	return [addr];
 }
