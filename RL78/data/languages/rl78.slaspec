@@ -182,6 +182,7 @@ macro pop24(o) {
 data16: data is datal ; datah [ data = (datah << 8) | datal;] { export *[const]:2 data; }
 
 addr16_abs: !val is datal ; datah [val = 0xF0000 | (datah << 8) | datal;] { export *[const]:3 val;}
+code16_abs: !val is datal ; datah [val = (datah << 8) | datal;] { export *[const]:3 val;}
 addr20_abs: !!data20 is datal; datah; datas [ data20 = (datas << 16) | (datah << 8) | datal;] { export *[const]:3 data20; }
 addr8_rel: "$" addr8 is jimm8 [addr8 = inst_start + 2 + jimm8; ] { export *[const]:3 addr8;}
 addr16_rel: "$!" addr16 is datal ; jimm8 [addr16 = inst_start + 3 + ((jimm8 << 8) | datal);] { export *[const]:3 addr16;}
@@ -229,28 +230,25 @@ reg_cbedlh:"D" is oplo=0xD & current_bank { local tmp:3=0xFFEFD - current_bank*8
 reg_cbedlh:"L" is oplo=0xE & current_bank { local tmp:3=0xFFEFE - current_bank*8; export *[ram]:1 tmp; }
 reg_cbedlh:"H" is oplo=0xF & current_bank { local tmp:3=0xFFEFE - current_bank*8; export *[ram]:1 tmp; }
 
-hl_ind: [HL] is HL { local addr:3 = zext(HL); local tmp:3 = zext(*[ram]:2 addr); export *[const]:3 tmp;}
-de_ind: [DE] is DE { local addr:3 = zext(DE); local tmp:3 = zext(*[ram]:2 addr); export *[const]:3 tmp;}
+hl_ind: [HL] is HL { local addr:3 = zext(HL); export *[const]:3 addr;}
+de_ind: [DE] is DE { local addr:3 = zext(DE); export *[const]:3 addr;}
 
-hl_b_ind: [HL + B] is HL & B { local addr:3 = zext(HL) + zext(B); local tmp:3 = zext(*[ram]:2 addr); export *[const]:3 tmp;}
-hl_c_ind: [HL + C] is HL & C { local addr:3 = zext(HL) + zext(C); local tmp:3 = zext(*[ram]:2 addr); export *[const]:3 tmp;}
+hl_b_ind: [HL + B] is HL & B { local addr:3 = zext(HL) + zext(B); export *[const]:3 addr;}
+hl_c_ind: [HL + C] is HL & C { local addr:3 = zext(HL) + zext(C); export *[const]:3 addr;}
 
 addr8_hl_rel: [HL + data8] is HL & data8 {
 	local addr:3 = zext(HL)+zext(data8:1); 
-	local val:3 = zext(*[ram]:2 addr);
-	export *[const]:3 val;
+	export *[const]:3 addr;
 }
 
 addr8_de_rel: [DE + data8] is DE & data8 {
 	local addr:3 = zext(DE)+zext(data8:1); 
-	local val:3 = zext(*[ram]:2 addr);
-	export *[const]:3 val;
+	export *[const]:3 addr;
 }
 
 addr8_sp_rel: ["SP" + data8] is data8 {
 	local addr:3 = zext(SP)+zext(data8:1); 
-	local val:3 = zext(*[ram]:2 addr);
-	export *[const]:3 val;
+	export *[const]:3 addr;
 }
 
 es_hl_b_ind: ES:hl_b_ind is ES & hl_b_ind { local tmp:3 = (zext(ES) << 16) + hl_b_ind; export *[const]:3 tmp; }
@@ -1128,7 +1126,7 @@ macro dec_flags(v) {
 :"clr1 CY" is op=0x71; op=0x88 { CY = 0; }
 
 #not1
-:"not1 CY" is op=0x71; op=0xc0 { CY = !CY; }
+:"not1 CY" is op=0x71; op=0xC0 { CY = !CY; }
 
 # call
 :call AX is op=0x61; op=0xCA & AX { 
@@ -1161,13 +1159,13 @@ macro dec_flags(v) {
 	local addr:3 = addr16_rel;
 	goto [addr];
 } 
-:call addr16_abs is op=0xfd; addr16_abs {
+:call code16_abs is op=0xFD; addr16_abs {
 	local tmp:4 = inst_next;
 	push32(tmp);
-	local addr:3 = addr16_abs;
+	local addr:3 = code16_abs;
 	goto [addr];
 }
-:call addr20_abs is op=0xfc; addr20_abs {
+:call addr20_abs is op=0xFC; addr20_abs {
 	local tmp:4 = inst_next;
 	push32(tmp);
 	local addr:3 = addr20_abs;
@@ -1185,7 +1183,7 @@ callt_addr: val is data8 & imm7=1 & imm3_3=0 & data3 > 3 [ val = 0x80 + (((data8
 
 # brk
 define pcodeop breakpoint;
-:brk is op=0x61; op=0xcc { breakpoint(); }
+:brk is op=0x61; op=0xCC { breakpoint(); }
 
 # ret
 :ret is op=0xD7 {
@@ -1266,7 +1264,7 @@ define pcodeop breakpoint;
 }
 :br addr8_rel is op=0xEF ; addr8_rel { goto [addr8_rel]; }
 :br addr16_rel is op=0xEE ; addr16_rel { goto [addr16_rel]; }
-:br addr16_abs is op=0xED ; addr16_abs { goto [addr16_abs]; }
+:br addr16_abs is op=0xED ; code16_abs { goto [code16_abs]; }
 :br addr20_abs is op=0xEC ; addr20_abs { goto [addr20_abs]; }
 
 #bc
