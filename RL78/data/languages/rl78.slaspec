@@ -127,6 +127,7 @@ define token opbyte (8)
 	
 	data8 = (0, 7)
 	data0_1 = (0, 1)
+	data0_0 = (0, 0)
 	
 	data3 = (0, 2)
 	datal=(0, 7)
@@ -137,6 +138,8 @@ define token opbyte (8)
 	imm7=(7,7)
 	imm4_6 = (4,6)
 	imm3_3 = (3, 3)
+
+	saddr_h = (5, 7)
 ;
 
 macro pop8(o) {
@@ -175,19 +178,8 @@ macro pop24(o) {
 	SP = SP + 3;
 }
 
-reg8_xacbedlh: is data3 & imm3_3=0 & current_bank {
-	local tmp:3 = 0xFFEF8 + (data3 & 0xF) - 8*current_bank;
-
-	export *[ram]:1 tmp;
-}
-
-
-
-
-
 
 data16: data is datal ; datah [ data = (datah << 8) | datal;] { export *[const]:2 data; }
-#data20: data is datal ; datah [ data = (datah << 8) | datal;] { export *[const]:2 data; }
 
 addr16_abs: !val is datal ; datah [val = 0xF0000 | (datah << 8) | datal;] { export *[const]:3 val;}
 addr20_abs: !!data20 is datal; datah; datas [ data20 = (datas << 16) | (datah << 8) | datal;] { export *[const]:3 data20; }
@@ -195,35 +187,47 @@ addr8_rel: "$" addr8 is jimm8 [addr8 = inst_start + 2 + jimm8; ] { export *[cons
 addr16_rel: "$!" addr16 is datal ; jimm8 [addr16 = inst_start + 3 + ((jimm8 << 8) | datal);] { export *[const]:3 addr16;}
 
 # short direct addressing
-saddr: val is jimm8 [val = 0xffe20 + jimm8;] { export *[const]:3 val; }
-saddrp: val is jimm8 & data0_1=0 [val = 0xffe20 + jimm8;] { export *[const]:3 val; }
+saddr: val is data8 & saddr_h=0 [val = 0xfff00 + data8;] { export *[const]:3 val; }
+saddr: val is data8 & saddr_h>0 [val = 0xffe00 + data8;] { export *[const]:3 val; }
+saddrp: val is data8 & data0_0=0 & saddr_h=0 [val = 0xfff00 + data8;] { export *[const]:3 val; }
+saddrp: val is data8 & data0_0=0 & saddr_h>0 [val = 0xffe00 + data8;] { export *[const]:3 val; }
 
 # SFR addressing
-sfr: val is jimm8 [val = 0xfff00 + jimm8;] { export *[const]:3 val; }
-sfrp: val is jimm8 & data0_1=0 [val = 0xfff00 + jimm8;] { export *[const]:3 val; }
+sfr: val is data8 [val = 0xfff00 + data8;] { export *[const]:3 val; }
+sfrp: val is data8 & data0_0=0 [val = 0xfff00 + data8;] { export *[const]:3 val; }
 
-reg_xcbedlh: is oplo=0x8 & current_bank { local tmp:3=0xFFEF8 - current_bank*8; export *[ram]:1 tmp; }
-reg_xcbedlh: is oplo=0xA & current_bank { local tmp:3=0xFFEFA - current_bank*8; export *[ram]:1 tmp; }
-reg_xcbedlh: is oplo=0xB & current_bank { local tmp:3=0xFFEFB - current_bank*8; export *[ram]:1 tmp; }
-reg_xcbedlh: is oplo=0xC & current_bank { local tmp:3=0xFFEFC - current_bank*8; export *[ram]:1 tmp; }
-reg_xcbedlh: is oplo=0xD & current_bank { local tmp:3=0xFFEFD - current_bank*8; export *[ram]:1 tmp; }
-reg_xcbedlh: is oplo=0xE & current_bank { local tmp:3=0xFFEFE - current_bank*8; export *[ram]:1 tmp; }
-reg_xcbedlh: is oplo=0xF & current_bank { local tmp:3=0xFFEFF - current_bank*8; export *[ram]:1 tmp; }
+reg8_xacbedlh:"X" is data3=0 & imm3_3=0 & current_bank { local tmp:3 = 0xFFEF8 - current_bank*8; export *[ram]:1 tmp; }
+reg8_xacbedlh:"A" is data3=1 & imm3_3=0 & current_bank { local tmp:3 = 0xFFEF9 - current_bank*8; export *[ram]:1 tmp; }
+reg8_xacbedlh:"C" is data3=2 & imm3_3=0 & current_bank { local tmp:3 = 0xFFEFA - current_bank*8; export *[ram]:1 tmp; }
+reg8_xacbedlh:"B" is data3=3 & imm3_3=0 & current_bank { local tmp:3 = 0xFFEFB - current_bank*8; export *[ram]:1 tmp; }
+reg8_xacbedlh:"E" is data3=4 & imm3_3=0 & current_bank { local tmp:3 = 0xFFEFC - current_bank*8; export *[ram]:1 tmp; }
+reg8_xacbedlh:"D" is data3=5 & imm3_3=0 & current_bank { local tmp:3 = 0xFFEFD - current_bank*8; export *[ram]:1 tmp; }
+reg8_xacbedlh:"L" is data3=6 & imm3_3=0 & current_bank { local tmp:3 = 0xFFEFE - current_bank*8; export *[ram]:1 tmp; }
+reg8_xacbedlh:"H" is data3=7 & imm3_3=0 & current_bank { local tmp:3 = 0xFFEFF - current_bank*8; export *[ram]:1 tmp; }
 
-reg_xcbedlh_low: is oplo=0x0 & current_bank { local tmp:3=0xFFEF8 - current_bank*8; export *[ram]:1 tmp; }
-reg_xcbedlh_low: is oplo=0x2 & current_bank { local tmp:3=0xFFEFA - current_bank*8; export *[ram]:1 tmp; }
-reg_xcbedlh_low: is oplo=0x3 & current_bank { local tmp:3=0xFFEFB - current_bank*8; export *[ram]:1 tmp; }
-reg_xcbedlh_low: is oplo=0x4 & current_bank { local tmp:3=0xFFEFC - current_bank*8; export *[ram]:1 tmp; }
-reg_xcbedlh_low: is oplo=0x5 & current_bank { local tmp:3=0xFFEFD - current_bank*8; export *[ram]:1 tmp; }
-reg_xcbedlh_low: is oplo=0x6 & current_bank { local tmp:3=0xFFEFE - current_bank*8; export *[ram]:1 tmp; }
-reg_xcbedlh_low: is oplo=0x7 & current_bank { local tmp:3=0xFFEFF - current_bank*8; export *[ram]:1 tmp; }
+reg_xcbedlh:"X" is oplo=0x8 & current_bank { local tmp:3=0xFFEF8 - current_bank*8; export *[ram]:1 tmp; }
+reg_xcbedlh:"C" is oplo=0xA & current_bank { local tmp:3=0xFFEFA - current_bank*8; export *[ram]:1 tmp; }
+reg_xcbedlh:"B" is oplo=0xB & current_bank { local tmp:3=0xFFEFB - current_bank*8; export *[ram]:1 tmp; }
+reg_xcbedlh:"E" is oplo=0xC & current_bank { local tmp:3=0xFFEFC - current_bank*8; export *[ram]:1 tmp; }
+reg_xcbedlh:"D" is oplo=0xD & current_bank { local tmp:3=0xFFEFD - current_bank*8; export *[ram]:1 tmp; }
+reg_xcbedlh:"L" is oplo=0xE & current_bank { local tmp:3=0xFFEFE - current_bank*8; export *[ram]:1 tmp; }
+reg_xcbedlh:"H" is oplo=0xF & current_bank { local tmp:3=0xFFEFF - current_bank*8; export *[ram]:1 tmp; }
 
-reg_cbedlh: is oplo=0x8 & current_bank { local tmp:1=0xFFEF8 - current_bank*8; export *[ram]:1 tmp; }
-reg_cbedlh: is oplo=0xA & current_bank { local tmp:1=0xFFEFA - current_bank*8; export *[ram]:1 tmp; }
-reg_cbedlh: is oplo=0xB & current_bank { local tmp:1=0xFFEFB - current_bank*8; export *[ram]:1 tmp; }
-reg_cbedlh: is oplo=0xC & current_bank { local tmp:1=0xFFEFC - current_bank*8; export *[ram]:1 tmp; }
-reg_cbedlh: is oplo=0xD & current_bank { local tmp:3=0xFFEFD - current_bank*8; export *[ram]:1 tmp; }
-reg_cbedlh: is oplo=0xE & current_bank { local tmp:3=0xFFEFE - current_bank*8; export *[ram]:1 tmp; }
+reg_xcbedlh_low:"X" is oplo=0x0 & current_bank { local tmp:3=0xFFEF8 - current_bank*8; export *[ram]:1 tmp; }
+reg_xcbedlh_low:"C" is oplo=0x2 & current_bank { local tmp:3=0xFFEFA - current_bank*8; export *[ram]:1 tmp; }
+reg_xcbedlh_low:"B" is oplo=0x3 & current_bank { local tmp:3=0xFFEFB - current_bank*8; export *[ram]:1 tmp; }
+reg_xcbedlh_low:"E" is oplo=0x4 & current_bank { local tmp:3=0xFFEFC - current_bank*8; export *[ram]:1 tmp; }
+reg_xcbedlh_low:"D" is oplo=0x5 & current_bank { local tmp:3=0xFFEFD - current_bank*8; export *[ram]:1 tmp; }
+reg_xcbedlh_low:"L" is oplo=0x6 & current_bank { local tmp:3=0xFFEFE - current_bank*8; export *[ram]:1 tmp; }
+reg_xcbedlh_low:"H" is oplo=0x7 & current_bank { local tmp:3=0xFFEFF - current_bank*8; export *[ram]:1 tmp; }
+
+reg_cbedlh:"X" is oplo=0x8 & current_bank { local tmp:1=0xFFEF8 - current_bank*8; export *[ram]:1 tmp; }
+reg_cbedlh:"C" is oplo=0xA & current_bank { local tmp:1=0xFFEFA - current_bank*8; export *[ram]:1 tmp; }
+reg_cbedlh:"B" is oplo=0xB & current_bank { local tmp:1=0xFFEFB - current_bank*8; export *[ram]:1 tmp; }
+reg_cbedlh:"E" is oplo=0xC & current_bank { local tmp:1=0xFFEFC - current_bank*8; export *[ram]:1 tmp; }
+reg_cbedlh:"D" is oplo=0xD & current_bank { local tmp:3=0xFFEFD - current_bank*8; export *[ram]:1 tmp; }
+reg_cbedlh:"L" is oplo=0xE & current_bank { local tmp:3=0xFFEFE - current_bank*8; export *[ram]:1 tmp; }
+reg_cbedlh:"H" is oplo=0xF & current_bank { local tmp:3=0xFFEFE - current_bank*8; export *[ram]:1 tmp; }
 
 hl_ind: [HL] is HL { local addr:3 = zext(HL); local tmp:3 = zext(*[ram]:2 addr); export *[const]:3 tmp;}
 de_ind: [DE] is DE { local addr:3 = zext(DE); local tmp:3 = zext(*[ram]:2 addr); export *[const]:3 tmp;}
@@ -530,7 +534,7 @@ macro add_flags(out, src, dest) {
 :add A, saddr is op=0x0B; saddr & A { local tmp:1; add_flags(tmp, A, *[ram]:1 saddr); A = tmp; }
 :add A, addr16_abs is op=0x0F; addr16_abs & A { local tmp:1; add_flags(tmp, A, *[ram]:1 addr16_abs); A = tmp; }
 :add A, hl_ind is op=0x0D & hl_ind & A { local tmp:1; add_flags(tmp, A, *[ram]:1 hl_ind); A = tmp; }
-:add A, addr8_hl_rel is op=0x0E & addr8_hl_rel & A { local tmp:1; add_flags(tmp, A, *[ram]:1 addr8_hl_rel); A = tmp; }
+:add A, addr8_hl_rel is op=0x0E; addr8_hl_rel & A { local tmp:1; add_flags(tmp, A, *[ram]:1 addr8_hl_rel); A = tmp; }
 :add A, hl_b_ind is op=0x61; op=0x80 & hl_b_ind & A { local tmp:1; add_flags(tmp, A, *[ram]:1 hl_b_ind); A = tmp; }
 :add A, hl_c_ind is op=0x61; op=0x82 & hl_c_ind & A { local tmp:1; add_flags(tmp, A, *[ram]:1 hl_c_ind); A = tmp; }
 :add A, es_addr16_abs is op=0x11; op=0x0F; es_addr16_abs & A { local tmp:1; add_flags(tmp, A, *[ram]:1 es_addr16_abs); A = tmp; }
@@ -555,7 +559,7 @@ macro addc_flags(out, src, dest) {
 :addc A, saddr is op=0x1B; saddr & A { local tmp:1; addc_flags(tmp, A, *[ram]:1 saddr); A = tmp; }
 :addc A, addr16_abs is op=0x1F; addr16_abs & A { local tmp:1; addc_flags(tmp, A, *[ram]:1 addr16_abs); A = tmp; }
 :addc A, hl_ind is op=0x1D & hl_ind & A { local tmp:1; addc_flags(tmp, A, *[ram]:1 hl_ind); A = tmp; }
-:addc A, addr8_hl_rel is op=0x1E & addr8_hl_rel & A { local tmp:1; addc_flags(tmp, A, *[ram]:1 addr8_hl_rel); A = tmp; }
+:addc A, addr8_hl_rel is op=0x1E; addr8_hl_rel & A { local tmp:1; addc_flags(tmp, A, *[ram]:1 addr8_hl_rel); A = tmp; }
 :addc A, hl_b_ind is op=0x61; op=0x90 & hl_b_ind & A { local tmp:1; addc_flags(tmp, A, *[ram]:1 hl_b_ind); A = tmp; }
 :addc A, hl_c_ind is op=0x61; op=0x92 & hl_c_ind & A { local tmp:1; addc_flags(tmp, A, *[ram]:1 hl_c_ind); A = tmp; }
 :addc A, es_addr16_abs is op=0x11; op=0x1F; es_addr16_abs & A { local tmp:1; addc_flags(tmp, A, *[ram]:1 es_addr16_abs); A = tmp; }
@@ -578,7 +582,7 @@ macro sub_flags(out, src, dest) {
 :sub A, saddr is op=0x2B; saddr & A { local tmp:1; sub_flags(tmp, A, *[ram]:1 saddr); A = tmp; }
 :sub A, addr16_abs is op=0x2F; addr16_abs & A { local tmp:1; sub_flags(tmp, A, *[ram]:1 addr16_abs); A = tmp; }
 :sub A, hl_ind is op=0x2D & hl_ind & A { local tmp:1; sub_flags(tmp, A, *[ram]:1 hl_ind); A = tmp; }
-:sub A, addr8_hl_rel is op=0x2E & addr8_hl_rel & A { local tmp:1; sub_flags(tmp, A, *[ram]:1 addr8_hl_rel); A = tmp; }
+:sub A, addr8_hl_rel is op=0x2E; addr8_hl_rel & A { local tmp:1; sub_flags(tmp, A, *[ram]:1 addr8_hl_rel); A = tmp; }
 :sub A, hl_b_ind is op=0x61; op=0xa0 & hl_b_ind & A { local tmp:1; sub_flags(tmp, A, *[ram]:1 hl_b_ind); A = tmp; }
 :sub A, hl_c_ind is op=0x61; op=0xa2 & hl_c_ind & A { local tmp:1; sub_flags(tmp, A, *[ram]:1 hl_c_ind); A = tmp; }
 :sub A, es_addr16_abs is op=0x11; op=0x2F; es_addr16_abs & A { local tmp:1; sub_flags(tmp, A, *[ram]:1 es_addr16_abs); A = tmp; }
@@ -602,7 +606,7 @@ macro subc_flags(out, src, dest) {
 :subc A, saddr is op=0x3B; saddr & A { local tmp:1; subc_flags(tmp, A, *[ram]:1 saddr); A = tmp; }
 :subc A, addr16_abs is op=0x3F; addr16_abs & A { local tmp:1; subc_flags(tmp, A, *[ram]:1 addr16_abs); A = tmp; }
 :subc A, hl_ind is op=0x3D & hl_ind & A { local tmp:1; subc_flags(tmp, A, *[ram]:1 hl_ind); A = tmp; }
-:subc A, addr8_hl_rel is op=0x3E & addr8_hl_rel & A { local tmp:1; subc_flags(tmp, A, *[ram]:1 addr8_hl_rel); A = tmp; }
+:subc A, addr8_hl_rel is op=0x3E; addr8_hl_rel & A { local tmp:1; subc_flags(tmp, A, *[ram]:1 addr8_hl_rel); A = tmp; }
 :subc A, hl_b_ind is op=0x61; op=0xb0 & hl_b_ind & A { local tmp:1; subc_flags(tmp, A, *[ram]:1 hl_b_ind); A = tmp; }
 :subc A, hl_c_ind is op=0x61; op=0xb2 & hl_c_ind & A { local tmp:1; subc_flags(tmp, A, *[ram]:1 hl_c_ind); A = tmp; }
 :subc A, es_addr16_abs is op=0x11; op=0x3F; es_addr16_abs & A { local tmp:1; subc_flags(tmp, A, *[ram]:1 es_addr16_abs); A = tmp; }
@@ -619,7 +623,7 @@ macro subc_flags(out, src, dest) {
 :and A, saddr is op=0x5B; saddr & A { local tmp:1 = A & (*[ram]:1 saddr); A = tmp; Z = tmp == 0; Z = tmp == 0; }
 :and A, addr16_abs is op=0x5F; addr16_abs & A { local tmp:1 = A & (*[ram]:1 addr16_abs); A = tmp; Z = tmp == 0; }
 :and A, hl_ind is op=0x5D & hl_ind & A { local tmp:1 = A & (*[ram]:1 hl_ind); A = tmp; Z = tmp == 0; }
-:and A, addr8_hl_rel is op=0x5E & addr8_hl_rel & A { local tmp:1 = A & (*[ram]:1 addr8_hl_rel); A = tmp; Z = tmp == 0; }
+:and A, addr8_hl_rel is op=0x5E; addr8_hl_rel & A { local tmp:1 = A & (*[ram]:1 addr8_hl_rel); A = tmp; Z = tmp == 0; }
 :and A, hl_b_ind is op=0x61; op=0xD0 & hl_b_ind & A { local tmp:1 = A & (*[ram]:1 hl_b_ind); A = tmp; Z = tmp == 0; }
 :and A, hl_c_ind is op=0x61; op=0xD2 & hl_c_ind & A { local tmp:1 = A & (*[ram]:1 hl_c_ind); A = tmp; Z = tmp == 0; }
 :and A, es_addr16_abs is op=0x11; op=0x5F; es_addr16_abs & A { local tmp:1 = A & (*[ram]:1 es_addr16_abs); A = tmp; Z = tmp == 0; }
@@ -641,7 +645,7 @@ macro subc_flags(out, src, dest) {
 :or A, saddr is op=0x6B; saddr & A { local tmp:1 = A | (*[ram]:1 saddr); A = tmp; Z = tmp == 0; }
 :or A, addr16_abs is op=0x6F; addr16_abs & A { local tmp:1 = A | (*[ram]:1 addr16_abs); A = tmp; Z = tmp == 0; }
 :or A, hl_ind is op=0x6D & hl_ind & A { local tmp:1 = A | (*[ram]:1 hl_ind); A = tmp; Z = tmp == 0; }
-:or A, addr8_hl_rel is op=0x6E & addr8_hl_rel & A { local tmp:1 = A | (*[ram]:1 addr8_hl_rel); A = tmp; Z = tmp == 0; }
+:or A, addr8_hl_rel is op=0x6E; addr8_hl_rel & A { local tmp:1 = A | (*[ram]:1 addr8_hl_rel); A = tmp; Z = tmp == 0; }
 :or A, hl_b_ind is op=0x61; op=0xE0 & hl_b_ind & A { local tmp:1 = A | (*[ram]:1 hl_b_ind); A = tmp; Z = tmp == 0; }
 :or A, hl_c_ind is op=0x61; op=0xE2 & hl_c_ind & A { local tmp:1 = A | (*[ram]:1 hl_c_ind); A = tmp; Z = tmp == 0; }
 :or A, es_addr16_abs is op=0x11; op=0x6F; es_addr16_abs & A { local tmp:1 = A | (*[ram]:1 es_addr16_abs); A = tmp; Z = tmp == 0; }
@@ -660,7 +664,7 @@ macro subc_flags(out, src, dest) {
 :xor A, saddr is op=0x7B; saddr & A { local tmp:1 = A ^ (*[ram]:1 saddr); A = tmp; Z = tmp == 0; }
 :xor A, addr16_abs is op=0x7F; addr16_abs & A { local tmp:1 = A ^ (*[ram]:1 addr16_abs); A = tmp; Z = tmp == 0; }
 :xor A, hl_ind is op=0x7D & hl_ind & A { local tmp:1 = A ^ (*[ram]:1 hl_ind); A = tmp; Z = tmp == 0; }
-:xor A, addr8_hl_rel is op=0x7E & addr8_hl_rel & A { local tmp:1 = A ^ (*[ram]:1 addr8_hl_rel); A = tmp; Z = tmp == 0; }
+:xor A, addr8_hl_rel is op=0x7E; addr8_hl_rel & A { local tmp:1 = A ^ (*[ram]:1 addr8_hl_rel); A = tmp; Z = tmp == 0; }
 :xor A, hl_b_ind is op=0x61; op=0xF0 & hl_b_ind & A { local tmp:1 = A ^ (*[ram]:1 hl_b_ind); A = tmp; Z = tmp == 0; }
 :xor A, hl_c_ind is op=0x61; op=0xF2 & hl_c_ind & A { local tmp:1 = A ^ (*[ram]:1 hl_c_ind); A = tmp; Z = tmp == 0; }
 :xor A, es_addr16_abs is op=0x11; op=0x7F; es_addr16_abs & A { local tmp:1 = A ^ (*[ram]:1 es_addr16_abs); A = tmp; Z = tmp == 0; }
@@ -683,7 +687,7 @@ macro cmp_flags(dst, src) {
 :cmp A, saddr is op=0x4B; saddr & A { cmp_flags(A, *[ram]:1 saddr); }
 :cmp A, addr16_abs is op=0x4F; addr16_abs & A { cmp_flags( A, *[ram]:1 addr16_abs); }
 :cmp A, hl_ind is op=0x4D & hl_ind & A { cmp_flags(A, *[ram]:1 hl_ind); }
-:cmp A, addr8_hl_rel is op=0x4E & addr8_hl_rel & A { cmp_flags(A, *[ram]:1 addr8_hl_rel); }
+:cmp A, addr8_hl_rel is op=0x4E; addr8_hl_rel & A { cmp_flags(A, *[ram]:1 addr8_hl_rel); }
 :cmp A, hl_b_ind is op=0x61; op=0xC0 & hl_b_ind & A { cmp_flags(A, *[ram]:1 hl_b_ind); }
 :cmp A, hl_c_ind is op=0x61; op=0xC2 & hl_c_ind & A { cmp_flags(A, *[ram]:1 hl_c_ind); }
 :cmp addr16_abs, data8 is op=0x40; addr16_abs; data8 { cmp_flags(*[ram]:1 addr16_abs, data8); }
@@ -740,6 +744,7 @@ macro addw_flags(dst, src) {
 :addw AX, es_addr8_hl_rel is op=0x11; op=0x61; op=0x09; es_addr8_hl_rel & AX { addw_flags(AX, *[ram]:2 es_addr8_hl_rel);}
 
 #subw
+# Note: objdump accepts `op=0x21 = subw AX, AX` as valid but that's not in the spec
 macro subw_flags(dst, src) {
 	local tmp:2 = dst - src;
 	Z = tmp == 0;
@@ -762,11 +767,12 @@ macro subw_flags(dst, src) {
 macro cmpw(a, b) {
 	Z = (a - b) == 0;
 	CY = sborrow(a, b);
+	# Manual states AC is undefined, lets assume that means clobber
 	AC = 0;
 }
 :cmpw AX, data16 is op=0x44 ; data16 & AX { cmpw(AX, data16); }
-:cmpw AX, BC is op=0x45 & AX & BC { cmpw(AX, BC); }
-:cmpw AX, DE is op=0x46 & AX & DE { cmpw(AX, DE); }
+:cmpw AX, BC is op=0x43 & AX & BC { cmpw(AX, BC); }
+:cmpw AX, DE is op=0x45 & AX & DE { cmpw(AX, DE); }
 :cmpw AX, HL is op=0x47 & AX & HL { cmpw(AX, HL); }
 :cmpw AX, saddrp is op=0x46; saddrp & AX { cmpw(AX, *[ram]:2 saddrp); }
 :cmpw AX, addr16_abs is op=0x42; addr16_abs & AX { cmpw(AX, *[ram]:2 addr16_abs); }
@@ -857,21 +863,21 @@ macro dec_flags(v) {
 }
 
 #shrw
-:shrw AX, immhi is op=0x31 ; immhi & immlo=0xE & AX { 
+:shrw AX, immhi is op=0x31 ; immhi & ophi > 0 & immlo=0xE & AX { 
 	CY = ((AX >> (immhi - 1))&1) != 0;
 	AX = AX >> immhi;
 }
 
 # shl
-:shl A, immhi is op=0x31; immhi & ophi > 0 & immlo=0x9 & A { 
+:shl A, immhi is op=0x31; immhi & ophi > 0 & immlo=0x9 & A & imm7=0 { 
 	CY = ((A >> (8 - immhi))&1) != 0;
 	A = A << immhi;
 }
-:shl B, immhi is op=0x31; immhi & ophi > 0 & immlo=0x8 & B { 
+:shl B, immhi is op=0x31; immhi & ophi > 0 & immlo=0x8 & B & imm7=0 { 
 	CY = ((B >> (8 - immhi))&1) != 0;
 	B = B << immhi;
 }
-:shl C, immhi is op=0x31; immhi & ophi > 0 & immlo=0x7 & C { 
+:shl C, immhi is op=0x31; immhi & ophi > 0 & immlo=0x7 & C & imm7=0 { 
 	CY = ((C >> (8 - immhi))&1) != 0;
 	C = C << immhi;
 }
@@ -887,7 +893,7 @@ macro dec_flags(v) {
 }
 
 # SAR
-:sar A, immhi is op=0x31 ; immhi & ophi > 0 & immlo=0xB & A { 
+:sar A, immhi is op=0x31 ; immhi & ophi > 0 & immlo=0xB & A & imm7=0 { 
 	CY = ((A >> (immhi - 1)) & 1) != 0;
 	A = A s>> immhi;
 }
@@ -1169,7 +1175,7 @@ macro dec_flags(v) {
 }
 
 # callt
-callt_addr: val is data8 & data0_1=0 [ val = 80 + (data8 - 0x84)/8; ] { export *[const]:3 val; }
+callt_addr: val is data8 & imm7=1 & imm3_3=0 & data3 > 3 [ val = 0x80 + (((data8 & 0xF) - 4)<<4) + (((data8 >> 4) - 8)<<1); ] { export *[const]:3 val; }
 :callt callt_addr is op=0x61; callt_addr {
 	local tmp:4 = inst_next;
 	push32(tmp);
