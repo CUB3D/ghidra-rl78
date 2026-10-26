@@ -1159,7 +1159,7 @@ macro dec_flags(v) {
 	local addr:3 = addr16_rel;
 	goto [addr];
 } 
-:call code16_abs is op=0xFD; addr16_abs {
+:call code16_abs is op=0xFD; code16_abs {
 	local tmp:4 = inst_next;
 	push32(tmp);
 	local addr:3 = code16_abs;
@@ -1264,7 +1264,7 @@ define pcodeop breakpoint;
 }
 :br addr8_rel is op=0xEF ; addr8_rel { goto [addr8_rel]; }
 :br addr16_rel is op=0xEE ; addr16_rel { goto [addr16_rel]; }
-:br addr16_abs is op=0xED ; code16_abs { goto [code16_abs]; }
+:br code16_abs is op=0xED ; code16_abs { goto [code16_abs]; }
 :br addr20_abs is op=0xEC ; addr20_abs { goto [addr20_abs]; }
 
 #bc
