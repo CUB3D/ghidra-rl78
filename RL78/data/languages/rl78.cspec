@@ -2,27 +2,48 @@
 
 <compiler_spec>
   <data_organization>
-	<pointer_size value="2" />
+    <pointer_size value="2"/>
+    <short_size value="2"/>
+    <integer_size value="2"/>
+    <long_size value="4"/>
+    <long_long_size value="8"/>
+    <float_size value="4"/>
+    <double_size value="4"/>
+    <long_double_size value="4"/>
+    <size_alignment_map>
+      <entry size="1" alignment="1"/>
+      <entry size="2" alignment="2"/>
+      <entry size="4" alignment="2"/>
+      <entry size="8" alignment="2"/>
+    </size_alignment_map>
   </data_organization>
   <global>
     <range space="ram" first="0x0" last="0xFFEDF"/>  <!-- Don't consider memory mapped registers global -->
+    <range space="ram" first="0xFFF00" last="0xFFFF7"/>
   </global>
   <nohighptr>
     <range space="ram" first="0xFFEE0" last="0xFFFFF"/>     <!-- Assume there is no aliasing into memory mapped registers -->
+    <range space="ram" first="0xFFFF8" last="0xFFFFF"/>
   </nohighptr>
   <stackpointer register="SP" space="ram"/>
+  <returnaddress>
+    <varnode space="stack" offset="0" size="3"/>
+  </returnaddress>
   <default_proto>
-    <prototype name="stdcall" extrapop="2" stackshift="2" strategy="register">
+    <prototype name="stdcall" extrapop="4" stackshift="4">
       <input>
-        <pentry minsize="1" maxsize="1">
-          <register name="RB0_A"/>
+        <pentry minsize="1" maxsize="500" align="2">
+          <addr offset="4" space="stack"/>
         </pentry>
       </input>
       <output>
         <pentry minsize="1" maxsize="1">
-          <register name="RB0_A"/>
+          <register name="RB1_X"/>
         </pentry>
       </output>
+      <unaffected>
+        <register name="SP"/>
+      </unaffected>
     </prototype>
   </default_proto>
 </compiler_spec>

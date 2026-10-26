@@ -1,9 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
 <processor_spec>
+    <programcounter register="PC"/>
 	<data_space space="ram"/>
+
 	<default_symbols>
-  		<symbol name="vector_table" address="ram:000000"/>
+  		<symbol name="reset" address="ram:000000" type="code_ptr"/>
+  		<symbol name="vector_table" address="ram:000002"/>
   		<symbol name="callt_area" address="ram:000080"/>
   		<symbol name="option_byte_area" address="ram:0000C0"/>
   		<symbol name="security_settings_area" address="ram:0000C4"/>
